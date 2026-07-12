@@ -4,14 +4,16 @@ import streamlit as st
 
 
 def chat_bubble(role: str, content: str) -> None:
-    align = "right" if role == "user" else "left"
-    color = "rgba(76,201,240,.14)" if role == "user" else "rgba(255,255,255,.06)"
+    """Render a chat message bubble using the shared design system."""
+    cls = "user" if role == "user" else "assistant"
+    label = "You" if role == "user" else "Advisor"
     st.markdown(
         f"""
-        <div style="text-align:{align}; margin: 8px 0;">
-            <span style="display:inline-block; max-width: 78%; background:{color}; border:1px solid var(--line); border-radius:8px; padding:10px 12px;">
-                {content}
-            </span>
+        <div style="display:flex; justify-content:{'flex-end' if role == 'user' else 'flex-start'}; margin:10px 0;">
+            <div class="bubble {cls}">
+                <div class="role">{label}</div>
+                <div>{content}</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,

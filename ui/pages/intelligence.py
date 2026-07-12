@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import html
-import json
-
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
+from ui.components.feedback import agent_node, empty_state, progress_bar, timeline_row
 from ui.components.metric_card import metric_card
 from ui.services import api_client
 from ui.services.ws_client import event_client
@@ -27,26 +24,28 @@ PIPELINE = [
 
 
 def render_intelligence() -> None:
+    st.markdown('<div class="eyebrow">Workspace / Intelligence</div>', unsafe_allow_html=True)
     st.title("Live Intelligence")
     job_id = st.session_state.job_id
     if not job_id:
-        st.info("Start an agent run from the Dashboard to open the live reasoning console.")
+        empty_state(
+            "🧠",
+            "No active agent run",
+            "Start an agent run from the Dashboard to open the live reasoning console.",
+        )
         return
 
+    # ---- Sync events (WebSocket when available, REST fallback) ----------
     if not st.session_state.serverless:
         event_client.start(st.session_state.ws_base_url, job_id)
         ws_events = event_client.drain()
         if ws_events:
             append_events(ws_events)
 
-    # HTTP Fallback & Sync:
-    # Query the job status via REST to ensure we have the complete and final set of events,
-    # especially in serverless or blocked WebSocket environments.
     try:
         job_status = api_client.run(api_client.get_job_status(st.session_state.api_base_url, job_id))
         backend_events = job_status.get("events", [])
         if backend_events:
-            # Reconcile events in session state by ID to prevent duplicates
             seen_ids = {e["id"] for e in st.session_state.events}
             new_events = [e for e in backend_events if e["id"] not in seen_ids]
             if new_events:
@@ -57,36 +56,41 @@ def render_intelligence() -> None:
     events = st.session_state.events
     status_by_agent = _status_by_agent(events)
     completed = sum(1 for agent in PIPELINE if status_by_agent.get(agent) == "completed")
+    job_state = _job_status(events)
 
+    # ---- Header metrics ------------------------------------------------
     cols = st.columns(4)
     with cols[0]:
-        metric_card("Job", job_id[:8], "Execution trace")
+        metric_card("Job", job_id[:8], "Execution trace", accent="#4cc9f0")
     with cols[1]:
-        metric_card("Progress", f"{completed}/{len(PIPELINE)}", "Agent stages")
+        metric_card("Progress", f"{completed}/{len(PIPELINE)}", "Agent stages", accent="#7bd88f")
     with cols[2]:
-        metric_card("Events", len(events), "Replay cache")
+        metric_card("Events", len(events), "Replay cache", accent="#f6c177")
     with cols[3]:
-        metric_card("Status", _job_status(events), "Runtime state")
+        accent = {"completed": "#7bd88f", "failed": "#ff6b6b", "running": "#4cc9f0"}.get(job_state, "#91a0b8")
+        metric_card("Status", job_state.capitalize(), "Runtime state", accent=accent)
 
+    progress_bar(completed, len(PIPELINE))
+
+    # ---- Two-column layout --------------------------------------------
     left, right = st.columns([1.1, 1])
     with left:
-        st.subheader("Execution Graph")
+        st.subheader("Execution graph")
         for agent in PIPELINE:
-            status = status_by_agent.get(agent, "queued")
-            st.markdown(
-                f"<div class='agent-node {status}'><b>{agent}</b><br><span class='small-muted'>{status}</span></div>",
-                unsafe_allow_html=True,
-            )
+            agent_node(agent, status_by_agent.get(agent, "queued"))
 
     with right:
-        st.subheader("Reasoning Timeline")
-        _browser_websocket_timeline(st.session_state.api_base_url, st.session_state.ws_base_url, job_id)
+        st.subheader("Reasoning timeline")
         if events:
-            with st.expander("Python event cache", expanded=False):
-                for event in reversed(events[-15:]):
-                    st.json(event)
+            for event in reversed(events):
+                agent = event.get("agent") or "Runtime"
+                timeline_row(agent, event.get("message", ""), event.get("status", "running"))
+        else:
+            st.caption("Awaiting first events…")
 
-    st.subheader("Experiment Tracking")
+    # ---- Experiment tracking ------------------------------------------
+    st.markdown('<hr class="soft">', unsafe_allow_html=True)
+    st.subheader("Experiment tracking")
     try:
         experiments = api_client.list_experiments(st.session_state.api_base_url)["experiments"]
         st.session_state.last_experiments = experiments
@@ -95,7 +99,10 @@ def render_intelligence() -> None:
         experiments = st.session_state.last_experiments
 
     if experiments:
-        st.dataframe(pd.DataFrame(experiments), use_container_width=True, hide_index=True)
+        df = pd.DataFrame(experiments)
+        if "metrics" in df.columns:
+            df = df.drop(columns=["metrics"])
+        st.dataframe(df, use_container_width=True, hide_index=True)
     else:
         st.caption("No completed experiments yet.")
 
@@ -114,61 +121,3 @@ def _job_status(events: list[dict]) -> str:
         if event.get("type") == "job_status":
             return event.get("status", "running")
     return "running"
-
-
-def _browser_websocket_timeline(api_base_url: str, ws_base_url: str, job_id: str) -> None:
-    ws_url = f"{ws_base_url.rstrip('/')}/ws/status/{job_id}"
-    safe_url = json.dumps(ws_url)
-    safe_api_url = json.dumps(api_base_url.rstrip('/'))
-    safe_job_id = json.dumps(job_id)
-    components.html(
-        f"""
-        <div id="timeline" style="height:420px; overflow:auto; border:1px solid rgba(156,176,205,.16); border-radius:8px; padding:12px; background:rgba(19,25,35,.74); font-family:Inter,Arial,sans-serif;"></div>
-        <script>
-        const timeline = document.getElementById("timeline");
-        const seen = new Set();
-        const socket = new WebSocket({safe_url});
-        function addEvent(event) {{
-            if (seen.has(event.id)) return;
-            seen.add(event.id);
-            const row = document.createElement("div");
-            row.style.cssText = "border-left:3px solid #4cc9f0; padding:8px 10px; margin-bottom:8px; background:rgba(255,255,255,.04); border-radius:6px; color:#e8edf7;";
-            if (event.status === "completed") row.style.borderLeftColor = "#7bd88f";
-            if (event.status === "failed") row.style.borderLeftColor = "#ff6b6b";
-            const agent = event.agent || "Runtime";
-            row.innerHTML = `<b>${{agent}}</b> <span style="color:#91a0b8">(${{event.status}})</span><br><span>${{event.message}}</span>`;
-            timeline.prepend(row);
-        }}
-        socket.onmessage = (message) => addEvent(JSON.parse(message.data));
-        
-        let pollingActive = false;
-        function startHttpPolling() {{
-            if (pollingActive) return;
-            pollingActive = true;
-            const errDiv = document.createElement("div");
-            errDiv.style.cssText = "color:#f6c177; padding:8px 0; font-size: 0.85rem;";
-            errDiv.textContent = "WebSocket stream offline. Polling updates via HTTP...";
-            timeline.prepend(errDiv);
-            
-            async function poll() {{
-                try {{
-                    const response = await fetch(`${safe_api_url}/agent/jobs/${safe_job_id}`);
-                    if (response.ok) {{
-                        const data = await response.json();
-                        const events = data.events || [];
-                        events.forEach(addEvent);
-                    }}
-                }} catch (e) {{
-                    console.error("HTTP fallback polling error:", e);
-                }}
-            }}
-            poll();
-            setInterval(poll, 2000);
-        }}
-        
-        socket.onerror = () => startHttpPolling();
-        socket.onclose = () => startHttpPolling();
-        </script>
-        """,
-        height=450,
-    )

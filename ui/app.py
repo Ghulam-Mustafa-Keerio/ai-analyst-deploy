@@ -9,84 +9,76 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from ui.pages.advisor import render_advisor
-from ui.pages.dashboard import render_dashboard
-from ui.pages.intelligence import render_intelligence
 from ui.state.app_state import init_state
+from ui.theme import apply_theme
+from ui.services import api_client
 
 
-st.set_page_config(page_title="Agent OS v2", page_icon=None, layout="wide", initial_sidebar_state="expanded")
-
-st.markdown(
-    """
-    <style>
-    :root {
-        --base: #0b0e14;
-        --panel: rgba(19, 25, 35, 0.74);
-        --panel-strong: rgba(27, 36, 50, 0.92);
-        --line: rgba(156, 176, 205, 0.16);
-        --text: #e8edf7;
-        --muted: #91a0b8;
-        --blue: #4cc9f0;
-        --green: #7bd88f;
-        --amber: #f6c177;
-        --red: #ff6b6b;
-    }
-    .stApp { background: var(--base); color: var(--text); }
-    h1, h2, h3 { letter-spacing: 0; }
-    .agent-shell {
-        border: 1px solid var(--line);
-        background: linear-gradient(145deg, rgba(18,24,34,.86), rgba(13,17,24,.82));
-        border-radius: 8px;
-        padding: 18px;
-        box-shadow: 0 18px 60px rgba(0,0,0,.24);
-    }
-    .glass-card {
-        border: 1px solid var(--line);
-        background: var(--panel);
-        backdrop-filter: blur(14px);
-        border-radius: 8px;
-        padding: 16px;
-    }
-    .metric-card {
-        border: 1px solid var(--line);
-        background: var(--panel-strong);
-        border-radius: 8px;
-        padding: 14px;
-        min-height: 96px;
-    }
-    .metric-label { color: var(--muted); font-size: .82rem; text-transform: uppercase; }
-    .metric-value { color: var(--text); font-size: 1.55rem; font-weight: 700; margin-top: 8px; }
-    .agent-node {
-        border: 1px solid var(--line);
-        border-left: 4px solid var(--blue);
-        border-radius: 8px;
-        padding: 10px 12px;
-        margin-bottom: 8px;
-        background: rgba(255,255,255,.03);
-    }
-    .agent-node.completed { border-left-color: var(--green); }
-    .agent-node.failed { border-left-color: var(--red); }
-    .small-muted { color: var(--muted); font-size: .85rem; }
-    </style>
-    """,
-    unsafe_allow_html=True,
+st.set_page_config(
+    page_title="Agent OS — Autonomous Data Science",
+    page_icon="🧭",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
+apply_theme()
 init_state()
 
+
+def _connection_status() -> None:
+    """Show a small live indicator for the configured backend."""
+    url = st.session_state.api_base_url
+    try:
+        ok = api_client.run(api_client.health(url))
+        connected = ok.get("status") == "ok"
+    except Exception:
+        connected = False
+    if connected:
+        st.markdown('<span class="badge success">● Backend online</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="badge danger">● Backend unreachable</span>', unsafe_allow_html=True)
+    st.caption(url)
+
+
 with st.sidebar:
-    st.markdown("## Agent OS v2")
-    st.caption("Autonomous data science control plane")
-    page = st.radio("Workspace", ["Dashboard", "Intelligence", "Advisor"], label_visibility="collapsed")
+    st.markdown("# 🧭 Agent OS")
+    st.markdown(
+        '<div class="eyebrow">Autonomous Data Science Control Plane</div>',
+        unsafe_allow_html=True,
+    )
     st.divider()
-    st.session_state.api_base_url = st.text_input("API base URL", st.session_state.api_base_url)
-    st.session_state.ws_base_url = st.text_input("WebSocket base URL", st.session_state.ws_base_url)
-    st.session_state.serverless = st.checkbox("Serverless backend (single-request run)", st.session_state.serverless)
+
+    page = st.radio(
+        "Workspace",
+        ["Dashboard", "Intelligence", "Advisor"],
+        label_visibility="collapsed",
+        captions=["Upload & launch", "Live reasoning", "Experiment Q&A"],
+    )
+
+    st.divider()
+    with st.expander("Connection", expanded=False):
+        st.session_state.api_base_url = st.text_input(
+            "API base URL", st.session_state.api_base_url, key="api_url_input"
+        )
+        st.session_state.ws_base_url = st.text_input(
+            "WebSocket base URL", st.session_state.ws_base_url, key="ws_url_input"
+        )
+        st.session_state.serverless = st.checkbox(
+            "Serverless backend (single-request run)",
+            st.session_state.serverless,
+            help="Enable for Vercel/Function deployments where files and state do not persist between requests.",
+        )
+        _connection_status()
 
 if page == "Dashboard":
+    from ui.pages.dashboard import render_dashboard
+
     render_dashboard()
 elif page == "Intelligence":
+    from ui.pages.intelligence import render_intelligence
+
     render_intelligence()
 else:
+    from ui.pages.advisor import render_advisor
+
     render_advisor()

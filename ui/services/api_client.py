@@ -30,6 +30,13 @@ def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
     return loop.run_until_complete(coro)
 
 
+async def health(api_base_url: str) -> dict:
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=10) as client:
+        response = await client.get("/health")
+        response.raise_for_status()
+        return response.json()
+
+
 async def upload_dataset(api_base_url: str, filename: str, content: bytes) -> dict:
     async with httpx.AsyncClient(base_url=api_base_url, timeout=120) as client:
         files = {"file": (filename, content)}

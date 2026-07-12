@@ -4,9 +4,10 @@ import streamlit as st
 
 
 def glass_card(title: str, body: str) -> None:
+    """Render a titled panel using the shared design system."""
     st.markdown(
         f"""
-        <div class="glass-card">
+        <div class="card">
             <h3 style="margin-top:0">{title}</h3>
             <div class="small-muted">{body}</div>
         </div>
