@@ -49,10 +49,11 @@ The Streamlit app is **env-configurable**:
   flow instead of the upload-then-start + WebSocket flow.
 
 ### Deploy steps
-1. Push this repo to GitHub (the Vercel project already exists; create a new
-   GitHub repo for the frontend, or reuse the same one).
+1. The code is already pushed to GitHub:
+   **https://github.com/Ghulam-Mustafa-Keerio/ai-analyst-deploy**
 2. Go to https://share.streamlit.io and sign in with GitHub.
-3. Click **New app** → select this repo.
+3. Click **New app** → select the `ai-analyst-deploy` repo.
+   - **Branch:** `master`
    - **Main file path:** `ui/app.py`
    - **Python requirements:** `requirements-streamlit.txt` (set in Advanced
      settings, or rename to `requirements.txt` at repo root).
