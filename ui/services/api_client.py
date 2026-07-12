@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+from functools import wraps
+from typing import Any, Callable, Coroutine
+
+import httpx
+import streamlit as st
+
+
+def async_cache_data(ttl: int = 30) -> Callable:
+    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable:
+        cached = st.cache_data(ttl=ttl)(lambda *args, **kwargs: _run_async(func(*args, **kwargs)))
+
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            return cached(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
+    import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    return loop.run_until_complete(coro)
+
+
+async def upload_dataset(api_base_url: str, filename: str, content: bytes) -> dict:
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=120) as client:
+        files = {"file": (filename, content)}
+        response = await client.post("/upload", files=files)
+        response.raise_for_status()
+        return response.json()
+
+
+async def start_agent(
+    api_base_url: str,
+    *,
+    dataset_id: str,
+    mode: str,
+    target: str | None,
+    features: list[str],
+    model: str | None,
+) -> dict:
+    payload = {"dataset_id": dataset_id, "mode": mode, "target": target, "features": features, "model": model}
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
+        response = await client.post("/agent/start", json=payload)
+        response.raise_for_status()
+        return response.json()
+
+
+async def run_agent(
+    api_base_url: str,
+    *,
+    filename: str,
+    content: bytes,
+    mode: str,
+    target: str | None,
+    features: list[str],
+    model: str | None,
+) -> dict:
+    """Upload a dataset and run the agent pipeline in a single request.
+
+    Used against serverless backends (e.g. Vercel) where files and in-memory
+    state do not persist across separate invocations.
+    """
+    data = {"mode": mode, "target": target or "", "features": ",".join(features), "model": model or ""}
+    files = {"file": (filename, content)}
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=120) as client:
+        response = await client.post("/agent/run", data=data, files=files)
+        response.raise_for_status()
+        return response.json()
+
+
+@async_cache_data(ttl=15)
+async def list_experiments(api_base_url: str) -> dict:
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
+        response = await client.get("/agent/experiments/compare")
+        response.raise_for_status()
+        return response.json()
+
+
+@async_cache_data(ttl=30)
+async def preview_dataset(api_base_url: str, dataset_id: str, page: int, page_size: int) -> dict:
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
+        response = await client.get(f"/agent/datasets/{dataset_id}/preview", params={"page": page, "page_size": page_size})
+        response.raise_for_status()
+        return response.json()
+
+
+@async_cache_data(ttl=60)
+async def get_domain_details(api_base_url: str, domain_name: str) -> dict:
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
+        response = await client.get(f"/agent/domains/{domain_name}")
+        response.raise_for_status()
+        return response.json()
+
+
+async def get_job_status(api_base_url: str, job_id: str) -> dict:
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
+        response = await client.get(f"/agent/jobs/{job_id}")
+        response.raise_for_status()
+        return response.json()
+
+
+async def chat(api_base_url: str, *, job_id: str | None, message: str) -> dict:
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
+        response = await client.post("/chat", json={"job_id": job_id, "message": message})
+        response.raise_for_status()
+        return response.json()
+
+
+def run(coro: Coroutine[Any, Any, Any]) -> Any:
+    return _run_async(coro)

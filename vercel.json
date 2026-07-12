@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "buildCommand": null,
+  "outputDirectory": null,
+  "functions": {
+    "backend/main.py": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "excludeFiles": "{tests/**,ui/**,htmlcov/**,skills/**,data/uploads/**,*.md,Dockerfile,docker-compose.yml,requirements*.txt,pytest.ini,coverage.xml,test_output*.txt}"
+    }
+  },
+  "routes": [
+    { "src": "/(.*)", "dest": "backend/main.py" }
+  ]
+}

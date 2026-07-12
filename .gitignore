@@ -1,0 +1,172 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+coverage.xml
+*.cover
+*.log
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# Data files (don't commit sensitive data)
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.pickle
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+
+# Model files (too large for git)
+models/*
+!models/.gitkeep
+*.pt
+*.pth
+*.onnx
+*.pb
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+.docker/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+
+# Vercel
+.vercel/
+
+# Uploaded datasets (ephemeral / serverless)
+data/uploads/
+*~
+
+# System files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Thumbnails
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Cloud credentials
+credentials.json
+service-account.json
+*.pem
+*.key
+
+# Secrets
+secrets/
+*.secret
+
+# Backup files
+*.bak
+*.backup
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Monitoring data
+prometheus_data/
+grafana_data/
+
+# Cache
+.cache/
+*.cache
+
+.vercel
+.env*
