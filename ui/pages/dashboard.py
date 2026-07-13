@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import pandas as pd
 import streamlit as st
 
@@ -7,6 +8,21 @@ from ui.components.feedback import empty_state
 from ui.components.feature_selector import feature_selector
 from ui.components.metric_card import metric_card
 from ui.services import api_client
+
+
+def _columns_from_upload(uploaded) -> list[str]:
+    """Infer column names from an in-memory upload for the pre-run selectors.
+
+    The serverless backend computes the real schema during the run, but we need
+    the column list up-front to let the user pick a target/features.
+    """
+    try:
+        suffix = uploaded.name.lower()
+        if suffix.endswith(".parquet"):
+            return list(pd.read_parquet(io.BytesIO(uploaded.getvalue())).columns)
+        return list(pd.read_csv(io.BytesIO(uploaded.getvalue()), nrows=1).columns)
+    except Exception:
+        return []
 
 
 def render_dashboard() -> None:
@@ -23,39 +39,62 @@ def render_dashboard() -> None:
     uploaded = st.file_uploader(
         "Dataset",
         type=["csv", "parquet"],
-        help="CSV or Parquet. Stored in dataset memory and profiled for schema + business domain.",
+        help="CSV or Parquet. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
     )
-    if uploaded and st.button("Register dataset", use_container_width=True, type="primary"):
-        with st.spinner("Profiling dataset & detecting domain…"):
-            try:
-                result = api_client.run(
-                    api_client.upload_dataset(
-                        st.session_state.api_base_url, uploaded.name, uploaded.getvalue()
-                    )
-                )
-                st.session_state.dataset = result["dataset"]
-                st.session_state.profile = result["profile"]
-                st.session_state.events = []
-                st.session_state.job_id = None
-                st.success(f"Registered `{uploaded.name}` ({result['dataset']['rows']:,} rows).")
-            except Exception as exc:
-                st.error(f"Upload failed: {exc}")
+    if uploaded is not None:
+        size_mb = len(uploaded.getvalue()) / 1024 / 1024
+        if size_mb > 4:
+            st.warning(
+                f"`{uploaded.name}` is {size_mb:.1f} MB — the serverless backend accepts up to 4 MB. "
+                "Use a smaller sample or self-host the backend."
+            )
+        else:
+            st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
 
-    dataset = st.session_state.dataset
-    profile = st.session_state.profile
+    if st.session_state.serverless:
+        # Serverless: no persistent state between requests, so the separate
+        # "register" step is skipped — the file is uploaded + analysed in one
+        # call when the run is launched below.
+        dataset = st.session_state.dataset
+        profile = st.session_state.profile
+    else:
+        if uploaded is not None and st.button("Register dataset", use_container_width=True, type="primary"):
+            with st.spinner("Profiling dataset & detecting domain…"):
+                try:
+                    result = api_client.run(
+                        api_client.upload_dataset(
+                            st.session_state.api_base_url, uploaded.name, uploaded.getvalue()
+                        )
+                    )
+                    st.session_state.dataset = result["dataset"]
+                    st.session_state.profile = result["profile"]
+                    st.session_state.events = []
+                    st.session_state.job_id = None
+                    st.success(f"Registered `{uploaded.name}` ({result['dataset']['rows']:,} rows).")
+                except Exception as exc:
+                    st.error(f"Upload failed: {exc}")
+
+        dataset = st.session_state.dataset
+        profile = st.session_state.profile
 
     if not dataset or not profile:
-        st.markdown('<hr class="soft">', unsafe_allow_html=True)
-        empty_state(
-            "📂",
-            "No dataset loaded",
-            "Upload a CSV or Parquet file above to initialise lineage, schema profiling, and domain analysis.",
-        )
-        return
+        if st.session_state.serverless and uploaded is not None:
+            # Serverless mode: lineage/profile are produced by the run itself,
+            # so proceed straight to launch once a file is present.
+            pass
+        else:
+            st.markdown('<hr class="soft">', unsafe_allow_html=True)
+            empty_state(
+                "📂",
+                "No dataset loaded",
+                "Upload a CSV or Parquet file above to initialise lineage, schema profiling, and domain analysis.",
+            )
+            return
 
     # ---- Lineage & domain ---------------------------------------------
-    st.markdown('<hr class="soft">', unsafe_allow_html=True)
-    st.subheader("2 · Dataset lineage & domain")
+    if dataset and profile:
+        st.markdown('<hr class="soft">', unsafe_allow_html=True)
+        st.subheader("2 · Dataset lineage & domain")
 
     cols = st.columns(4)
     with cols[0]:
@@ -127,7 +166,13 @@ def render_dashboard() -> None:
     st.markdown('<hr class="soft">', unsafe_allow_html=True)
     st.subheader("3 · Launch agent pipeline")
 
-    columns = list(dataset["schema"])
+    if st.session_state.serverless:
+        if uploaded is None:
+            st.info("Upload a dataset above to configure and launch the pipeline.")
+            return
+        columns = _columns_from_upload(uploaded)
+    else:
+        columns = list(dataset["schema"])
     mode = st.segmented_control("Autonomy", ["manual", "assisted", "autonomous"], default="autonomous")
     target = st.selectbox("Target column", columns, index=max(len(columns) - 1, 0))
     model = None
@@ -140,26 +185,29 @@ def render_dashboard() -> None:
 
     if st.button("Start agent run", type="primary", use_container_width=True):
         if st.session_state.serverless:
-            with st.spinner("Running agent pipeline (serverless)…"):
-                try:
-                    result = api_client.run(
-                        api_client.run_agent(
-                            st.session_state.api_base_url,
-                            filename=dataset["filename"],
-                            content=uploaded.getvalue(),
-                            mode=mode,
-                            target=target,
-                            features=features,
-                            model=model,
+            if uploaded is None:
+                st.error("Upload a dataset first.")
+            else:
+                with st.spinner("Uploading & running agent pipeline (serverless)…"):
+                    try:
+                        result = api_client.run(
+                            api_client.run_agent(
+                                st.session_state.api_base_url,
+                                filename=uploaded.name,
+                                content=uploaded.getvalue(),
+                                mode=mode,
+                                target=target,
+                                features=features,
+                                model=model,
+                            )
                         )
-                    )
-                    st.session_state.job_id = result["job_id"]
-                    st.session_state.events = result["status"].get("events", [])
-                    st.session_state.dataset = result["dataset"]
-                    st.session_state.profile = result["profile"]
-                    st.success(f"Agent run completed: `{result['job_id']}` — view it on the Intelligence tab.")
-                except Exception as exc:
-                    st.error(f"Agent run failed: {exc}")
+                        st.session_state.job_id = result["job_id"]
+                        st.session_state.events = result["status"].get("events", [])
+                        st.session_state.dataset = result["dataset"]
+                        st.session_state.profile = result["profile"]
+                        st.success(f"Agent run completed: `{result['job_id']}` — view it on the Intelligence tab.")
+                    except Exception as exc:
+                        st.error(f"Agent run failed: {exc}")
         else:
             try:
                 started = api_client.run(

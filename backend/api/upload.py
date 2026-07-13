@@ -16,6 +16,10 @@ import os
 router = APIRouter(prefix="/upload", tags=["upload"])
 UPLOAD_DIR = Path("/tmp/data/uploads") if os.environ.get("VERCEL") else Path("data/uploads")
 
+# Vercel serverless functions cap the request body (~4.5 MB). Reject larger
+# uploads early with a clear error instead of a generic 413.
+MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+
 
 @router.post("")
 async def upload_dataset(file: UploadFile = File(...)) -> dict:
@@ -24,6 +28,14 @@ async def upload_dataset(file: UploadFile = File(...)) -> dict:
     suffix = Path(file.filename).suffix.lower()
     if suffix not in {".csv", ".parquet"}:
         raise HTTPException(status_code=400, detail="Only CSV and Parquet datasets are supported.")
+
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Dataset is too large ({len(content) / 1024 / 1024:.1f} MB). "
+            f"Serverless deployments accept up to 4 MB. Use a smaller sample or self-host the backend.",
+        )
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename).name.replace(" ", "_")

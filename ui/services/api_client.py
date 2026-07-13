@@ -7,6 +7,22 @@ import httpx
 import streamlit as st
 
 
+# Vercel serverless functions cap the request body (~4.5 MB). Uploads
+# larger than this will fail with HTTP 413, so we guard early with a
+# clear, user-facing message instead of a cryptic server error.
+MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+MAX_UPLOAD_MB = MAX_UPLOAD_BYTES // (1024 * 1024)
+
+
+def _guard_size(filename: str, content: bytes) -> None:
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise ValueError(
+            f"`{filename}` is {len(content) / 1024 / 1024:.1f} MB, "
+            f"but the serverless backend accepts files up to {MAX_UPLOAD_MB} MB. "
+            "Use a smaller sample or self-host the backend."
+        )
+
+
 def async_cache_data(ttl: int = 30) -> Callable:
     def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable:
         cached = st.cache_data(ttl=ttl)(lambda *args, **kwargs: _run_async(func(*args, **kwargs)))
@@ -21,6 +37,12 @@ def async_cache_data(ttl: int = 30) -> Callable:
 
 
 def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
+    """Run a coroutine from Streamlit's synchronous script context.
+
+    Streamlit 1.59+ executes scripts inside a running asyncio event loop,
+    so ``asyncio.run`` raises "cannot be called from a running event loop".
+    We reuse the active loop when present, otherwise fall back to asyncio.run.
+    """
     import asyncio
 
     try:
@@ -38,6 +60,7 @@ async def health(api_base_url: str) -> dict:
 
 
 async def upload_dataset(api_base_url: str, filename: str, content: bytes) -> dict:
+    _guard_size(filename, content)
     async with httpx.AsyncClient(base_url=api_base_url, timeout=120) as client:
         files = {"file": (filename, content)}
         response = await client.post("/upload", files=files)
@@ -76,6 +99,7 @@ async def run_agent(
     Used against serverless backends (e.g. Vercel) where files and in-memory
     state do not persist across separate invocations.
     """
+    _guard_size(filename, content)
     data = {"mode": mode, "target": target or "", "features": ",".join(features), "model": model or ""}
     files = {"file": (filename, content)}
     async with httpx.AsyncClient(base_url=api_base_url, timeout=120) as client:

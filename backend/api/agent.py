@@ -86,10 +86,16 @@ async def run_agent(file: UploadFile = File(...), request: RunAgentRequest = Run
     if suffix not in {".csv", ".parquet"}:
         raise HTTPException(status_code=400, detail="Only CSV and Parquet datasets are supported.")
 
+    content = await file.read()
+    if len(content) > 4 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail="Dataset is too large for serverless deployment (max 4 MB). Use a smaller sample or self-host the backend.",
+        )
+
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename).name.replace(" ", "_")
     path = UPLOAD_DIR / f"{uuid4().hex}_{safe_name}"
-    content = await file.read()
     await asyncio.to_thread(path.write_bytes, content)
 
     profile = await profile_dataset(path)
