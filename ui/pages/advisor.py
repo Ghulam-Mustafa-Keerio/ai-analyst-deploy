@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import streamlit as st
+import httpx
 
 from ui.components.chat_bubble import chat_bubble
 from ui.components.feedback import empty_state
+from ui.components.plot_3d import scatter_3d
 from ui.services import api_client
 
 
@@ -22,6 +24,16 @@ def render_advisor() -> None:
         )
         return
 
+    dataset = st.session_state.dataset
+    if dataset:
+        with st.expander("3D dataset context", expanded=False):
+            st.caption("PCA projection of the active dataset, grounding the advisor's reasoning.")
+            try:
+                embedding = api_client.run(api_client.embed_3d(st.session_state.api_base_url, dataset["dataset_id"]))
+                scatter_3d(embedding.get("points", []), color="#7bd88f")
+            except httpx.HTTPStatusError as exc:
+                st.info(f"3D context unavailable: {exc}")
+
     for message in st.session_state.advisor_messages:
         chat_bubble(message["role"], message["content"])
 
@@ -37,8 +49,8 @@ def render_advisor() -> None:
             response = api_client.run(
                 api_client.chat(st.session_state.api_base_url, job_id=st.session_state.job_id, message=prompt)
             )
-            answer = response["answer"]
-        except Exception as exc:
+            answer = response["answer"] # type: ignore
+        except httpx.HTTPStatusError as exc:
             answer = f"Unable to reach the advisor: {exc}"
 
     st.session_state.advisor_messages.append({"role": "assistant", "content": answer})

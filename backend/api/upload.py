@@ -40,7 +40,6 @@ async def upload_dataset(file: UploadFile = File(...)) -> dict:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename).name.replace(" ", "_")
     path = UPLOAD_DIR / f"{uuid4().hex}_{safe_name}"
-    content = await file.read()
     await asyncio.to_thread(path.write_bytes, content)
     from backend.tools.domain_detection import detect_domain
     profile = await profile_dataset(path)

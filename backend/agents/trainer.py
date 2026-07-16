@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from backend.agents.planner import AgentContext
 from backend.tools.data_loader import read_dataset
 from backend.tools.ml_training import train_model
+
+
+EXPORT_DIR = Path("/tmp/data/models") if os.environ.get("VERCEL") else Path("data/models")
 
 
 class TrainingAgent:
@@ -20,6 +26,7 @@ class TrainingAgent:
                 target=context.target,
                 features=context.selected_features,
                 model_name=context.selected_model or "random_forest",
+                export_dir=str(EXPORT_DIR),
             )
         )
         return context

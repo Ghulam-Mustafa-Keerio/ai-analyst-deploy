@@ -17,6 +17,7 @@ class Experiment:
     metrics: dict[str, float] = field(default_factory=dict)
     insights: list[str] = field(default_factory=list)
     feature_importance: list[dict[str, Any]] = field(default_factory=list)
+    model_path: str | None = None
 
 
 class ExperimentStore:

@@ -14,14 +14,24 @@ class DatasetRecord:
     rows: int
     columns: int
     schema: dict[str, str]
+    source_type: str = "upload"
 
 
 class DatasetMemory:
     def __init__(self) -> None:
         self._records: dict[str, DatasetRecord] = {}
 
-    def register(self, *, filename: str, path: Path, rows: int, columns: int, schema: dict[str, str]) -> DatasetRecord:
-        record = DatasetRecord(str(uuid4()), filename, str(path), rows, columns, schema)
+    def register(
+        self,
+        *,
+        filename: str,
+        path: Path,
+        rows: int,
+        columns: int,
+        schema: dict[str, str],
+        source_type: str = "upload",
+    ) -> DatasetRecord:
+        record = DatasetRecord(str(uuid4()), filename, str(path), rows, columns, schema, source_type)
         self._records[record.dataset_id] = record
         return record
 

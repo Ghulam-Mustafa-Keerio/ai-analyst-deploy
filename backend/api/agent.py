@@ -162,3 +162,20 @@ async def dataset_preview(dataset_id: str, page: int = 1, page_size: int = 100) 
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Dataset not found.") from exc
     return await preview_dataset(dataset.path, page=page, page_size=min(page_size, 500))
+
+
+@router.get("/jobs/{job_id}/model")
+async def download_model(job_id: str):
+    """Return the trained, deployable model artifact for the completed job."""
+    from fastapi.responses import FileResponse
+
+    try:
+        experiment = experiment_store.by_job(job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Job not found.") from exc
+    if experiment.status != "completed":
+        raise HTTPException(status_code=409, detail="Model is only available after a completed run.")
+    model_path = experiment.model_path
+    if not model_path or not Path(model_path).exists():
+        raise HTTPException(status_code=404, detail="Model artifact not found for this job.")
+    return FileResponse(model_path, filename=Path(model_path).name, media_type="application/octet-stream")

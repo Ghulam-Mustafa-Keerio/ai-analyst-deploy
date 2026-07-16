@@ -108,6 +108,7 @@ class AgentRuntime:
                 metrics=context.training_result.get("metrics", {}),
                 insights=context.insights,
                 feature_importance=context.training_result.get("feature_importance", []),
+                model_path=context.training_result.get("model_path"),
             )
             await event_stream.publish(make_event("job_status", job_id=context.job_id, message="Agent pipeline completed.", status="completed"))
         except Exception as exc:
