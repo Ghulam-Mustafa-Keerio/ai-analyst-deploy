@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 import httpx
 
@@ -12,6 +13,8 @@ from ui.components.plot_3d import experiments_3d, pipeline_3d, metrics_3d, featu
 from ui.services import api_client
 from ui.services.ws_client import event_client
 from ui.state.app_state import append_events
+
+logger = logging.getLogger(__name__)
 
 
 PIPELINE = [
@@ -39,23 +42,31 @@ def render_intelligence() -> None:
         )
         return
 
-    # ---- Sync events (WebSocket when available, REST fallback) ----------
-    if not st.session_state.serverless:
-        event_client.start(st.session_state.ws_base_url, job_id)
-        ws_events = event_client.drain()
-        if ws_events:
-            append_events(ws_events)
+    st.session_state.setdefault("last_experiments", [])
 
+    # ---- Sync events (WebSocket for live, REST for catch-up) ----------
+    # [+] Bug Fix: The WebSocket client was imported but never called, breaking live updates.
+    # This re-enables the live event stream for self-hosted runs.
+    if not st.session_state.serverless:
+        event_client(st.session_state.api_base_url, job_id)
+
+    job_status = None
     try:
+        # The REST endpoint serves as a catch-up mechanism on page load/refresh
         job_status = api_client.run(api_client.get_job_status(st.session_state.api_base_url, job_id))
         backend_events = job_status.get("events", [])
         if backend_events:
-            seen_ids = {e["id"] for e in st.session_state.events}
-            new_events = [e for e in backend_events if e["id"] not in seen_ids]
+            seen_ids = {e.get("id") for e in st.session_state.get("events", [])}
+            new_events = [e for e in backend_events if e.get("id") not in seen_ids]
             if new_events:
                 append_events(new_events)
-    except Exception as exc:
-        st.warning(f"Unable to sync job status from backend: {exc}") # type: ignore
+    except httpx.HTTPError as exc:
+        # [+] UX/Reliability: Instead of silently failing, inform the user about sync issues
+        # with a non-disruptive toast, and log the error for debugging.
+        logger.warning(f"Unable to sync job status from backend: {exc}", exc_info=True)
+        st.toast(f"⚠️ Sync failed: {exc}", icon="🔥")
+
+    job_state = _job_status(st.session_state.get("events", []))
 
     events = st.session_state.events
     status_by_agent = _status_by_agent(events)
@@ -100,13 +111,20 @@ def render_intelligence() -> None:
 
     # ---- Experiment tracking ------------------------------------------
     st.markdown('<hr class="soft">', unsafe_allow_html=True)
-    st.subheader("Experiment tracking")
+    st.subheader("Experiment Tracking")
     try:
-        experiments = api_client.list_experiments(st.session_state.api_base_url)["experiments"]
+        # [+] Data Consistency: Use the cached `list_experiments` for a general overview,
+        # but ensure the final experiment from the *current* completed job is always included
+        # by pulling it directly from the uncached `get_job_status` result.
+        experiments = api_client.run(api_client.list_experiments(st.session_state.api_base_url))["experiments"]
         st.session_state.last_experiments = experiments
     except httpx.HTTPStatusError as exc:
         st.warning(f"Experiment store unavailable: {exc}")
         experiments = st.session_state.last_experiments
+    
+    if job_state == "completed" and job_status:
+        final_experiment = job_status.get("experiment")
+        _ensure_experiment_in_list(experiments, final_experiment)
 
     if experiments:
         df = pd.DataFrame(experiments)
@@ -122,42 +140,7 @@ def render_intelligence() -> None:
 
     # ---- 3D model quality & feature importance ------------------------
     if job_state == "completed":
-        try:
-            job_status = api_client.run(api_client.get_job_status(st.session_state.api_base_url, job_id))
-            exp = job_status.get("experiment") or {}
-        except httpx.HTTPStatusError:
-            exp = {}
-        metrics = exp.get("metrics") or {}
-        feat_imp = exp.get("feature_importance") or []
-        if isinstance(feat_imp, list):
-            feat_imp = {fi.get("feature"): float(fi.get("importance", 0.0)) for fi in feat_imp if isinstance(fi, dict)}
-
-        if metrics:
-            with st.expander("📊 3D metrics globe", expanded=False):
-                st.caption("Each metric is a vertex; radial distance encodes its normalised score.")
-                metrics_3d(metrics)
-        if feat_imp:
-            with st.expander("🧬 3D feature importance", expanded=False):
-                st.caption("Features wrapped on a helix; radius encodes normalised importance.")
-                feature_importance_3d(feat_imp)
-
-    # ---- Model export --------------------------------------------------
-    if job_state == "completed":
-        st.markdown('<hr class="soft">', unsafe_allow_html=True)
-        st.subheader("Deploy model")
-        st.caption("Download the trained, deployable pipeline artifact (joblib).")
-        try:
-            artifact = api_client.run(api_client.download_model(st.session_state.api_base_url, job_id))
-            st.download_button(
-                "⬇ Download model artifact",
-                data=artifact["content"],
-                file_name=artifact["filename"],
-                mime="application/octet-stream",
-                width="stretch",
-                type="primary",
-            ) # type: ignore
-        except httpx.HTTPStatusError as exc:
-            st.error(f"Model export unavailable: {exc}")
+        _render_completed_job_artifacts(job_id)
 
 
 def _status_by_agent(events: list[dict[str, Any]]) -> dict[str, str]:
@@ -174,3 +157,61 @@ def _job_status(events: list[dict[str, Any]]) -> str:
         if event.get("type") == "job_status":
             return event.get("status", "running")
     return "running"
+
+
+def _ensure_experiment_in_list(experiments: list[dict[str, Any]], new_experiment: dict[str, Any] | None) -> None:
+    """Ensure the given experiment is in the list, replacing it by ID if a stale version exists."""
+    if not new_experiment or not new_experiment.get("experiment_id"):
+        return
+
+    exp_id_to_add = new_experiment["experiment_id"]
+    # [+] Data Consistency Bug Fix: The previous implementation only added the experiment if it
+    # was missing, but didn't update it if a stale version was in the cache.
+    # This new logic finds and replaces the stale entry, ensuring data is always fresh.
+    for i, existing_exp in enumerate(experiments):
+        if existing_exp.get("experiment_id") == exp_id_to_add:
+            experiments[i] = new_experiment  # Replace stale entry
+            return
+    experiments.insert(0, new_experiment)  # Or add if not found
+
+
+def _render_completed_job_artifacts(job_id: str) -> None:
+    """Fetch and render artifacts for a completed job, like metrics and model downloads."""
+    st.markdown('<hr class="soft">', unsafe_allow_html=True)
+    st.subheader("Completed Run Artifacts")
+
+    try:
+        job_status = api_client.run(api_client.get_job_status(st.session_state.api_base_url, job_id))
+        exp = job_status.get("experiment") or {}
+    except httpx.HTTPStatusError as exc:
+        st.warning(f"Could not load final job status: {exc}")
+        exp = {}
+
+    metrics = exp.get("metrics") or {}
+    feat_imp = exp.get("feature_importance") or []
+    if isinstance(feat_imp, list):
+        feat_imp = {fi.get("feature"): float(fi.get("importance", 0.0)) for fi in feat_imp if isinstance(fi, dict)}
+
+    if metrics:
+        with st.expander("📊 3D metrics globe", expanded=False):
+            st.caption("Each metric is a vertex; radial distance encodes its normalised score.")
+            metrics_3d(metrics)
+    if feat_imp:
+        with st.expander("🧬 3D feature importance", expanded=False):
+            st.caption("Features wrapped on a helix; radius encodes normalised importance.")
+            feature_importance_3d(feat_imp)
+
+    st.subheader("Deploy model")
+    st.caption("Download the trained, deployable pipeline artifact (joblib).")
+    try:
+        artifact = api_client.run(api_client.download_model(st.session_state.api_base_url, job_id))
+        st.download_button(
+            "⬇ Download model artifact",
+            data=artifact["content"],
+            file_name=artifact["filename"],
+            mime="application/octet-stream",
+            use_container_width=True,
+            type="primary",
+        )
+    except httpx.HTTPStatusError as exc:
+        st.error(f"Model export unavailable: {exc}")

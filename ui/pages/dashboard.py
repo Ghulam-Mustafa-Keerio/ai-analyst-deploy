@@ -86,10 +86,14 @@ class DataSource(TypedDict):
 
 
 def _render_upload_source() -> None:
-    uploaded = st.file_uploader(
+    # [+] Bug Fix: Add a key to the file_uploader. This stores the uploaded file in
+    # st.session_state, making it accessible to the "Launch agent" section in
+    # serverless mode, which relies on st.session_state.get("file_uploader").
+    uploaded = st.file_uploader( # type: ignore
         "Dataset",
         type=["csv", "parquet"],
         help="CSV or Parquet. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
+        key="file_uploader",
     )
     if uploaded is not None:
         size_mb = len(uploaded.getvalue()) / 1024 / 1024 if uploaded.getvalue() else 0
@@ -100,7 +104,7 @@ def _render_upload_source() -> None:
             )
         else:
             st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
-        if not st.session_state.serverless and st.button("Register dataset", key="upload_register", type="primary"):
+        if not st.session_state.serverless and st.button("Register dataset", key="upload_register"): 
             with st.spinner("Profiling dataset & detecting domain…"):
                 try:
                     result = api_client.run(
@@ -109,9 +113,6 @@ def _render_upload_source() -> None:
                     _commit_dataset(result.get("dataset"), result.get("profile"))
                 except Exception as exc:
                     st.error(f"Upload failed: {exc}")
-    
-    return uploaded
-
 
 def _render_sample_source() -> None:
     try:
@@ -119,11 +120,16 @@ def _render_sample_source() -> None:
     except Exception as exc:
         samples = []
         st.warning(f"Sample catalogue unavailable: {exc}")
+
     if samples:
-        choice: None = st.selectbox("Built-in sample", [s["key"] for s in samples], format_func=lambda k: f"{k} — {next(s['description'] for s in samples if s['key'] == k)}")
-        if st.button("Load sample", key="load_sample", type="primary"):
+        choice: str | None = st.selectbox(
+            "Built-in sample",
+            [s["key"] for s in samples],
+            format_func=lambda k: f"{k} — {next(s['description'] for s in samples if s['key'] == k)}",
+        )
+        if st.button("Load sample", key="load_sample"):
             _handle_source_connection("Sample load", "sample", {"sample_key": choice})
-    return None
+
 
 
 def _render_sql_source() -> None:
@@ -134,13 +140,15 @@ def _render_sql_source() -> None:
         table = st.text_input("Table name")
     else:
         query = st.text_area("SQL query", placeholder="SELECT * FROM customers LIMIT 1000")
-    if st.button("Connect", key="connect_sql", type="primary"):
+
+    if st.button("Connect", key="connect_sql"):
         _handle_source_connection(
-            "SQL connection", "sql",
+            "SQL connection",
+            "sql",
             {"source_url": db_url, "table": table, "query": query},
-            is_valid=bool(db_url and (table or query))
+            is_valid=bool(db_url and (table or query)),
         )
-    return None
+
 
 
 DATA_SOURCES: list[DataSource] = [
@@ -182,12 +190,10 @@ def render_dashboard() -> None:
             st.info(f"3D source map unavailable: {exc}")
 
     # Render the selected data source UI
-    uploaded_file = None
     for source in DATA_SOURCES:
         if source["label"] == selected_label:
-            uploaded_file = source["renderer"]
+            source["renderer"]()
             break
-
     dataset = st.session_state.get("dataset")
     profile = st.session_state.get("profile")
 
@@ -286,6 +292,8 @@ def render_dashboard() -> None:
         st.subheader("3 · Launch agent pipeline")
 
         if st.session_state.serverless:
+            # Re-fetch the uploaded file from the file_uploader's state if needed for serverless mode
+            uploaded_file = st.session_state.get("file_uploader")
             if uploaded_file is None:
                 st.info("Upload a dataset above to configure and launch the pipeline.")
                 return
@@ -302,7 +310,7 @@ def render_dashboard() -> None:
         elif mode == "assisted":
             features = feature_selector(columns, target)
 
-        if st.button("Start agent run", type="primary", use_container_width=True):
+        if st.button("Start agent run", use_container_width=True): 
             if st.session_state.serverless:
                 if uploaded_file is None:
                     st.error("Upload a dataset first.")
