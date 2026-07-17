@@ -35,7 +35,7 @@ def _commit_dataset(dataset: dict[str, Any], profile: dict[str, Any]) -> None:
     st.success(f"Registered `{filename}` ({rows:,} rows).")
 
 
-def _columns_from_upload(uploaded) -> list[str]:
+def _columns_from_upload(uploaded: Any) -> list[str]:
     """Infer column names from an in-memory upload for the pre-run selectors.
 
     The serverless backend computes the real schema during the run, but we need
@@ -109,8 +109,7 @@ def _render_upload_source() -> None:
                     _commit_dataset(result.get("dataset"), result.get("profile"))
                 except Exception as exc:
                     st.error(f"Upload failed: {exc}")
-    # This is returned to be used in the serverless launch UI
-    # after the main data source selection block.
+    
     return uploaded
 
 
@@ -121,7 +120,7 @@ def _render_sample_source() -> None:
         samples = []
         st.warning(f"Sample catalogue unavailable: {exc}")
     if samples:
-        choice = st.selectbox("Built-in sample", [s["key"] for s in samples], format_func=lambda k: f"{k} — {next(s['description'] for s in samples if s['key'] == k)}")
+        choice: None = st.selectbox("Built-in sample", [s["key"] for s in samples], format_func=lambda k: f"{k} — {next(s['description'] for s in samples if s['key'] == k)}")
         if st.button("Load sample", key="load_sample", type="primary"):
             _handle_source_connection("Sample load", "sample", {"sample_key": choice})
     return None
