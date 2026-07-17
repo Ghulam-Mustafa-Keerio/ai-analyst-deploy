@@ -180,7 +180,7 @@ def render_dashboard() -> None:
     # Render the selected data source UI
     for source in DATA_SOURCES:
         if source["label"] == selected_label:
-            source"renderer"
+            source["renderer"]()
             break
 
     dataset = st.session_state.get("dataset")
