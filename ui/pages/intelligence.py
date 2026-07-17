@@ -65,13 +65,13 @@ def render_intelligence() -> None:
     # ---- Header metrics ------------------------------------------------
     cols = st.columns(4)
     with cols[0]:
-        metric_card("Job", job_id[:8], "Execution trace", accent="#4cc9f0")
+        metric_card("Job", job_id[:8], "Execution trace", accent="#2563eb")
     with cols[1]:
-        metric_card("Progress", f"{completed}/{len(PIPELINE)}", "Agent stages", accent="#7bd88f")
+        metric_card("Progress", f"{completed}/{len(PIPELINE)}", "Agent stages", accent="#16a34a")
     with cols[2]:
-        metric_card("Events", len(events), "Replay cache", accent="#f6c177")
+        metric_card("Events", len(events), "Replay cache", accent="#d97706")
     with cols[3]:
-        accent = {"completed": "#7bd88f", "failed": "#ff6b6b", "running": "#4cc9f0"}.get(job_state, "#91a0b8")
+        accent = {"completed": "#16a34a", "failed": "#dc2626", "running": "#2563eb"}.get(job_state, "#64748b")
         metric_card("Status", job_state.capitalize(), "Runtime state", accent=accent)
 
     progress_bar(completed, len(PIPELINE))

@@ -6,7 +6,7 @@ import math
 import streamlit as st  # type: ignore
 
 
-def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = "#4cc9f0", title: str = "") -> None:
+def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = "#2563eb", title: str = "") -> None:
     """Render an interactive 3D point cloud from embedding points.
 
     ``points`` is a list of dicts with keys ``x``, ``y``, ``z`` and optional
@@ -14,7 +14,7 @@ def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = 
     """
     try:
         import plotly.graph_objects as go  # type: ignore
-    except Exception:
+    except ImportError:
         st.info("3D visualisation requires `plotly`. Install it to see the point cloud.")
         return
 
@@ -46,13 +46,13 @@ def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = 
         margin=dict(l=0, r=0, t=30 if title else 0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         scene=dict(
-            xaxis=dict(showbackground=False, gridcolor="rgba(156,176,205,0.15)"),
-            yaxis=dict(showbackground=False, gridcolor="rgba(156,176,205,0.15)"),
-            zaxis=dict(showbackground=False, gridcolor="rgba(156,176,205,0.15)"),
+            xaxis=dict(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
+            yaxis=dict(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
+            zaxis=dict(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
         ),
-        font=dict(color="#e8edf7"),
+        font=dict(color="#1e293b"),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def pipeline_3d(stages: list[dict[str, Any]], *, height: int = 520) -> None:
@@ -64,7 +64,7 @@ def pipeline_3d(stages: list[dict[str, Any]], *, height: int = 520) -> None:
     """
     try:
         import plotly.graph_objects as go  # type: ignore
-    except Exception:
+    except ImportError:
         st.info("3D visualisation requires `plotly`. Install it to see the pipeline graph.")
         return
 
@@ -73,10 +73,10 @@ def pipeline_3d(stages: list[dict[str, Any]], *, height: int = 520) -> None:
         return
 
     status_color = {
-        "completed": "#7bd88f",
-        "failed": "#ff6b6b",
-        "running": "#4cc9f0",
-        "queued": "#91a0b8",
+        "completed": "#16a34a",
+        "failed": "#dc2626",
+        "running": "#2563eb",
+        "queued": "#94a3b8",
     }
     n = len(stages)
     xs: list[float] = []
@@ -92,7 +92,7 @@ def pipeline_3d(stages: list[dict[str, Any]], *, height: int = 520) -> None:
         ys.append(radius * math.sin(angle))
         zs.append(i / max(n - 1, 1) * 4 - 2)
         status = stage.get("status", "queued")
-        colors.append(status_color.get(status, "#91a0b8"))
+        colors.append(status_color.get(status, "#94a3b8"))
         texts.append(f"{stage['name']}<br><span style='font-size:11px'>{status}</span>")
         sizes.append(14 if status == "running" else 10)
 
@@ -108,7 +108,7 @@ def pipeline_3d(stages: list[dict[str, Any]], *, height: int = 520) -> None:
                 hovertext=texts,
                 hoverinfo="text",
                 marker=dict(size=sizes, color=colors, opacity=0.95, line=dict(width=0)),
-                line=dict(color="rgba(156,176,205,0.35)", width=3),
+                line=dict(color="rgba(100,116,139,0.35)", width=3),
             )
         ]
     )
@@ -122,9 +122,9 @@ def pipeline_3d(stages: list[dict[str, Any]], *, height: int = 520) -> None:
             yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
             zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
         ),
-        font=dict(color="#e8edf7"),
+        font=dict(color="#1e293b"),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def experiments_3d(experiments: list[dict[str, Any]], *, height: int = 480) -> None:
@@ -135,7 +135,7 @@ def experiments_3d(experiments: list[dict[str, Any]], *, height: int = 480) -> N
     """
     try:
         import plotly.graph_objects as go  # type: ignore
-    except Exception:
+    except ImportError:
         st.info("3D visualisation requires `plotly`. Install it to see the experiment space.")
         return
 
@@ -191,9 +191,9 @@ def experiments_3d(experiments: list[dict[str, Any]], *, height: int = 480) -> N
             yaxis=dict(gridcolor="rgba(156,176,205,0.15)"),
             zaxis=dict(gridcolor="rgba(156,176,205,0.15)"),
         ),
-        font=dict(color="#e8edf7"),
+        font=dict(color="#1e293b"),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def sources_3d(sources: list[dict[str, Any]], *, height: int = 460) -> None:
@@ -205,7 +205,7 @@ def sources_3d(sources: list[dict[str, Any]], *, height: int = 460) -> None:
     """
     try:
         import plotly.graph_objects as go  # type: ignore
-    except Exception:
+    except ImportError:
         st.info("3D visualisation requires `plotly`. Install it to see the source map.")
         return
 
@@ -228,7 +228,7 @@ def sources_3d(sources: list[dict[str, Any]], *, height: int = 460) -> None:
     zs: list[float] = []
     texts: list[str] = []
     colors: list[str] = []
-    palette = ["#4cc9f0", "#7bd88f", "#f6c177", "#ff6b6b", "#b794f6", "#63d2ff", "#ffd166", "#06d6a0", "#ef476f"]
+    palette = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#0891b2", "#ca8a04", "#059669", "#e11d48"]
     for i, src in enumerate(sources):
         x, y, z = _pos(src.get("key", str(i)))
         xs.append(x)
@@ -262,9 +262,9 @@ def sources_3d(sources: list[dict[str, Any]], *, height: int = 460) -> None:
             yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
             zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
         ),
-        font=dict(color="#e8edf7"),
+        font=dict(color="#1e293b"),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def schema_3d(schema: dict[str, str], missing_ratio: dict[str, float] | None = None, *, height: int = 460) -> None:
@@ -276,7 +276,7 @@ def schema_3d(schema: dict[str, str], missing_ratio: dict[str, float] | None = N
     """
     try:
         import plotly.graph_objects as go  # type: ignore
-    except Exception:
+    except ImportError:
         st.info("3D visualisation requires `plotly`. Install it to see the schema field.")
         return
 
@@ -294,7 +294,7 @@ def schema_3d(schema: dict[str, str], missing_ratio: dict[str, float] | None = N
     heights: list[float] = []
     colors: list[str] = []
     texts: list[str] = []
-    numeric_color, cat_color = "#4cc9f0", "#f6c177"
+    numeric_color, cat_color = "#2563eb", "#d97706"
     for i, col in enumerate(cols):
         gx = i % side
         gy = i // side
@@ -338,9 +338,9 @@ def schema_3d(schema: dict[str, str], missing_ratio: dict[str, float] | None = N
             yaxis=dict(gridcolor="rgba(156,176,205,0.12)"),
             zaxis=dict(gridcolor="rgba(156,176,205,0.12)"),
         ),
-        font=dict(color="#e8edf7"),
+        font=dict(color="#1e293b"),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def metrics_3d(metrics: dict[str, float], *, height: int = 460) -> None:
@@ -351,7 +351,7 @@ def metrics_3d(metrics: dict[str, float], *, height: int = 460) -> None:
     """
     try:
         import plotly.graph_objects as go  # type: ignore
-    except Exception:
+    except ImportError:
         st.info("3D visualisation requires `plotly`. Install it to see the metrics globe.")
         return
 
@@ -405,9 +405,9 @@ def metrics_3d(metrics: dict[str, float], *, height: int = 460) -> None:
             yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
             zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
         ),
-        font=dict(color="#e8edf7"),
+        font=dict(color="#1e293b"),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def feature_importance_3d(importance: dict[str, float], *, height: int = 460) -> None:
@@ -419,7 +419,7 @@ def feature_importance_3d(importance: dict[str, float], *, height: int = 460) ->
     """
     try:
         import plotly.graph_objects as go  # type: ignore
-    except Exception:
+    except ImportError:
         st.info("3D visualisation requires `plotly`. Install it to see feature importance.")
         return
 
@@ -475,6 +475,6 @@ def feature_importance_3d(importance: dict[str, float], *, height: int = 460) ->
             yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
             zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
         ),
-        font=dict(color="#e8edf7"),
+        font=dict(color="#1e293b"),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)

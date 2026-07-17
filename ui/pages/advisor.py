@@ -30,7 +30,7 @@ def render_advisor() -> None:
             st.caption("PCA projection of the active dataset, grounding the advisor's reasoning.")
             try:
                 embedding = api_client.run(api_client.embed_3d(st.session_state.api_base_url, dataset["dataset_id"]))
-                scatter_3d(embedding.get("points", []), color="#7bd88f")
+                scatter_3d(embedding.get("points", []), color="#16a34a")
             except httpx.HTTPStatusError as exc:
                 st.info(f"3D context unavailable: {exc}")
 

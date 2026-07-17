@@ -36,8 +36,8 @@ def progress_bar(completed: int, total: int) -> None:
             <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--muted); margin-bottom:6px;">
                 <span>Pipeline progress</span><span>{completed}/{total} stages</span>
             </div>
-            <div style="height:8px; border-radius:999px; background:rgba(255,255,255,0.06); overflow:hidden; border:1px solid var(--line);">
-                <div style="height:100%; width:{pct}%; background:linear-gradient(90deg,#4cc9f0,#7bd88f); transition:width .4s ease;"></div>
+            <div style="height:8px; border-radius:999px; background:var(--base-alt, #e2e5ea); overflow:hidden; border:1px solid var(--line);">
+                <div style="height:100%; width:{pct}%; background:linear-gradient(90deg,#2563eb,#16a34a); transition:width .4s ease;"></div>
             </div>
         </div>
         """,
