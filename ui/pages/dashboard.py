@@ -92,7 +92,7 @@ def _render_upload_source() -> None:
         help="CSV or Parquet. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
     )
     if uploaded is not None:
-        size_mb = len(uploaded.getvalue()) / 1024 / 1024
+        size_mb = len(uploaded.getvalue()) / 1024 / 1024 if uploaded.getvalue() else 0
         if size_mb > 4:
             st.error(
                 f"`{uploaded.name}` is {size_mb:.1f} MB — the serverless backend accepts up to 4 MB. "
@@ -109,6 +109,9 @@ def _render_upload_source() -> None:
                     _commit_dataset(result.get("dataset"), result.get("profile"))
                 except Exception as exc:
                     st.error(f"Upload failed: {exc}")
+    # This is returned to be used in the serverless launch UI
+    # after the main data source selection block.
+    return uploaded
 
 
 def _render_sample_source() -> None:
@@ -121,6 +124,7 @@ def _render_sample_source() -> None:
         choice = st.selectbox("Built-in sample", [s["key"] for s in samples], format_func=lambda k: f"{k} — {next(s['description'] for s in samples if s['key'] == k)}")
         if st.button("Load sample", key="load_sample", type="primary"):
             _handle_source_connection("Sample load", "sample", {"sample_key": choice})
+    return None
 
 
 def _render_sql_source() -> None:
@@ -137,6 +141,7 @@ def _render_sql_source() -> None:
             {"source_url": db_url, "table": table, "query": query},
             is_valid=bool(db_url and (table or query))
         )
+    return None
 
 
 DATA_SOURCES: list[DataSource] = [
@@ -178,9 +183,10 @@ def render_dashboard() -> None:
             st.info(f"3D source map unavailable: {exc}")
 
     # Render the selected data source UI
+    uploaded_file = None
     for source in DATA_SOURCES:
         if source["label"] == selected_label:
-            source["renderer"]()
+            uploaded_file = source["renderer"]
             break
 
     dataset = st.session_state.get("dataset")
@@ -276,66 +282,64 @@ def render_dashboard() -> None:
             except Exception as exc:
                 st.info(f"3D schema unavailable: {exc}")
 
-    # ---- Launch ----------------------------------------------------------
-    st.markdown('<hr class="soft">', unsafe_allow_html=True)
-    st.subheader("3 · Launch agent pipeline")
+        # ---- Launch ----------------------------------------------------------
+        st.markdown('<hr class="soft">', unsafe_allow_html=True)
+        st.subheader("3 · Launch agent pipeline")
 
-    if st.session_state.serverless:
-        if uploaded is None:
-            st.info("Upload a dataset above to configure and launch the pipeline.")
-            return
-        columns = _columns_from_upload(uploaded)
-    else:
-        columns = list(dataset["schema"])
-    mode = st.segmented_control("Autonomy", ["manual", "assisted", "autonomous"], default="autonomous")
-    target = st.selectbox("Target column", columns, index=max(len(columns) - 1, 0))
-    model = None
-    features: list[str] = []
-    if mode == "manual":
-        model = st.selectbox("Model", ["linear", "random_forest"])
-        features = feature_selector(columns, target)
-    elif mode == "assisted":
-        features = feature_selector(columns, target)
-
-    if st.button("Start agent run", type="primary", width="stretch"):
         if st.session_state.serverless:
-            if uploaded is None:
-                st.error("Upload a dataset first.")
-            else:
-                with st.spinner("Uploading & running agent pipeline (serverless)…"):
-                    try:
-                        result = api_client.run(
-                            api_client.run_agent(
-                                st.session_state.api_base_url,
-                                filename=uploaded.name,
-                                content=uploaded.getvalue(),
-                                mode=mode,
-                                target=target,
-                                features=features,
-                                model=model,
-                            )
-                        )
-                        st.session_state.job_id = result["job_id"]
-                        st.session_state.events = result["status"].get("events", [])
-                        st.session_state.dataset = result["dataset"]
-                        st.session_state.profile = result["profile"]
-                        st.success(f"Agent run completed: `{result['job_id']}` — view it on the Intelligence tab.")
-                    except Exception as exc:
-                        st.error(f"Agent run failed: {exc}")
+            if uploaded_file is None:
+                st.info("Upload a dataset above to configure and launch the pipeline.")
+                return
+            columns = _columns_from_upload(uploaded_file)
         else:
-            try:
-                started = api_client.run(
-                    api_client.start_agent(
-                        st.session_state.api_base_url,
-                        dataset_id=dataset["dataset_id"],
-                        mode=mode,
-                        target=target,
-                        features=features,
-                        model=model,
+            columns = list(dataset.get("schema", {}))
+        mode = st.radio("Autonomy", ["manual", "assisted", "autonomous"], index=2, horizontal=True)
+        target = st.selectbox("Target column", columns, index=max(len(columns) - 1, 0))
+        model = None
+        features: list[str] = []
+        if mode == "manual":
+            model = st.selectbox("Model", ["linear", "random_forest"])
+            features = feature_selector(columns, target)
+        elif mode == "assisted":
+            features = feature_selector(columns, target)
+
+        if st.button("Start agent run", type="primary", use_container_width=True):
+            if st.session_state.serverless:
+                if uploaded_file is None:
+                    st.error("Upload a dataset first.")
+                else:
+                    with st.spinner("Uploading & running agent pipeline (serverless)…"):
+                        try:
+                            result = api_client.run(
+                                api_client.run_agent(
+                                    st.session_state.api_base_url,
+                                    filename=uploaded_file.name,
+                                    content=uploaded_file.getvalue(),
+                                    mode=mode,
+                                    target=target,
+                                    features=features,
+                                    model=model,
+                                )
+                            )
+                            _commit_dataset(result.get("dataset"), result.get("profile"))
+                            st.session_state.job_id = result.get("job_id")
+                            st.success(f"Agent run completed: `{st.session_state.job_id}` — view it on the Intelligence tab.")
+                        except Exception as exc:
+                            st.error(f"Agent run failed: {exc}")
+            else:
+                try:
+                    started = api_client.run(
+                        api_client.start_agent(
+                            st.session_state.api_base_url,
+                            dataset_id=dataset["dataset_id"],
+                            mode=mode,
+                            target=target,
+                            features=features,
+                            model=model,
+                        )
                     )
-                )
-                st.session_state.job_id = started["job_id"]
-                st.session_state.events = []
-                st.success(f"Agent run started: `{started['job_id']}` — open Intelligence to watch it live.")
-            except Exception as exc:
-                st.error(f"Agent run failed: {exc}")
+                    st.session_state.job_id = started.get("job_id")
+                    st.session_state.events = []
+                    st.success(f"Agent run started: `{st.session_state.job_id}` — open Intelligence to watch it live.")
+                except Exception as exc:
+                    st.error(f"Agent run failed: {exc}")
