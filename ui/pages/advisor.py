@@ -50,8 +50,14 @@ def render_advisor() -> None:
                 api_client.chat(st.session_state.api_base_url, job_id=st.session_state.job_id, message=prompt)
             )
             answer = response["answer"] # type: ignore
+        except httpx.ConnectError:
+            answer = "Unable to reach the advisor: Connection failed. Please check the backend server."
         except httpx.HTTPStatusError as exc:
-            answer = f"Unable to reach the advisor: {exc}"
+            answer = f"Unable to reach the advisor: Server returned status {exc.response.status_code}."
+        except Exception as exc:
+            # [+] Observability: Log the full exception for debugging.
+            # logger.error(f"Advisor chat failed unexpectedly: {exc}", exc_info=True)
+            answer = f"An unexpected error occurred: {exc}"
 
     st.session_state.advisor_messages.append({"role": "assistant", "content": answer})
     chat_bubble("assistant", answer)

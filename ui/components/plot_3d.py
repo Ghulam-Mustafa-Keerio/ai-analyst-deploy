@@ -1,9 +1,51 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict, NotRequired
 
 import math
 import streamlit as st  # type: ignore
+
+# [+] Production-Grade Typing: Use TypedDict to define the schema for complex
+# dictionary structures like Plotly layouts. This provides static type checking
+# and autocompletion, preventing common errors and improving maintainability.
+
+class _SceneAxis(TypedDict):
+    showbackground: bool
+    gridcolor: str
+    showticklabels: NotRequired[bool]
+
+class _Scene(TypedDict):
+    xaxis: _SceneAxis
+    yaxis: _SceneAxis
+    zaxis: _SceneAxis
+    xaxis_title: NotRequired[str]
+    yaxis_title: NotRequired[str]
+    zaxis_title: NotRequired[str]
+
+class _PlotlyLayout(TypedDict):
+    height: int
+    margin: dict[str, int]
+    paper_bgcolor: str
+    scene: _Scene
+    font: dict[str, str]
+    title: NotRequired[str | None]
+    showlegend: NotRequired[bool]
+
+# [+] Maintainability: Abstract common Plotly layout settings into a helper function
+# to reduce code duplication and ensure a consistent visual style.
+def _get_default_scene_layout(height: int, title: str | None = None) -> _PlotlyLayout:
+    """Returns a default layout dictionary for 3D scenes."""
+    return _PlotlyLayout(
+        height=height,
+        margin=dict(l=0, r=0, t=30 if title else 0, b=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        scene=_Scene(
+            xaxis=_SceneAxis(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
+            yaxis=_SceneAxis(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
+            zaxis=_SceneAxis(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
+        ),
+        font=dict(color="#1e293b"),
+    )
 
 
 def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = "#2563eb", title: str = "") -> None:
@@ -22,9 +64,11 @@ def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = 
         st.caption("No points to render in 3D.")
         return
 
-    xs: list[float] = [float(p["x"]) for p in points]
-    ys: list[float] = [float(p["y"]) for p in points]
-    zs: list[float] = [float(p["z"]) for p in points]
+    # [+] Reliability: Use .get() with default values and explicit type conversion
+    # to prevent KeyErrors and TypeErrors from malformed input data.
+    xs: list[float] = [float(p.get("x", 0.0)) for p in points]
+    ys: list[float] = [float(p.get("y", 0.0)) for p in points]
+    zs: list[float] = [float(p.get("z", 0.0)) for p in points]
     labels: list[str] = [str(p.get("label", "")) for p in points]
 
     fig = go.Figure(
@@ -40,18 +84,9 @@ def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = 
             )
         ]
     )
-    fig.update_layout(
-        title=title or None,
-        height=height,
-        margin=dict(l=0, r=0, t=30 if title else 0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        scene=dict(
-            xaxis=dict(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
-            yaxis=dict(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
-            zaxis=dict(showbackground=False, gridcolor="rgba(100,116,139,0.15)"),
-        ),
-        font=dict(color="#1e293b"),
-    )
+    layout = _get_default_scene_layout(height, title)
+    layout["title"] = title or None
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -112,18 +147,12 @@ def pipeline_3d(stages: list[dict[str, Any]], *, height: int = 520) -> None:
             )
         ]
     )
-    fig.update_layout(
-        height=height,
-        margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        scene=dict(
-            xaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-        ),
-        font=dict(color="#1e293b"),
-    )
+    layout = _get_default_scene_layout(height)
+    layout["showlegend"] = False
+    layout["scene"]["xaxis"]["showticklabels"] = False
+    layout["scene"]["yaxis"]["showticklabels"] = False
+    layout["scene"]["zaxis"]["showticklabels"] = False
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -179,20 +208,11 @@ def experiments_3d(experiments: list[dict[str, Any]], *, height: int = 480) -> N
             )
         ]
     )
-    fig.update_layout(
-        height=height,
-        margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        scene=dict(
-            xaxis_title="accuracy",
-            yaxis_title="f1",
-            zaxis_title="train_time",
-            xaxis=dict(gridcolor="rgba(156,176,205,0.15)"),
-            yaxis=dict(gridcolor="rgba(156,176,205,0.15)"),
-            zaxis=dict(gridcolor="rgba(156,176,205,0.15)"),
-        ),
-        font=dict(color="#1e293b"),
-    )
+    layout = _get_default_scene_layout(height)
+    layout["scene"]["xaxis_title"] = "accuracy"
+    layout["scene"]["yaxis_title"] = "f1"
+    layout["scene"]["zaxis_title"] = "train_time"
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -252,18 +272,12 @@ def sources_3d(sources: list[dict[str, Any]], *, height: int = 460) -> None:
             )
         ]
     )
-    fig.update_layout(
-        height=height,
-        margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        scene=dict(
-            xaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-        ),
-        font=dict(color="#1e293b"),
-    )
+    layout = _get_default_scene_layout(height)
+    layout["showlegend"] = False
+    layout["scene"]["xaxis"]["showticklabels"] = False
+    layout["scene"]["yaxis"]["showticklabels"] = False
+    layout["scene"]["zaxis"]["showticklabels"] = False
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -325,21 +339,12 @@ def schema_3d(schema: dict[str, str], missing_ratio: dict[str, float] | None = N
             )
         ]
     )
-    fig.update_layout(
-        height=height,
-        margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        scene=dict(
-            xaxis_title="column index",
-            yaxis_title="column index",
-            zaxis_title="missing ratio",
-            xaxis=dict(gridcolor="rgba(156,176,205,0.12)"),
-            yaxis=dict(gridcolor="rgba(156,176,205,0.12)"),
-            zaxis=dict(gridcolor="rgba(156,176,205,0.12)"),
-        ),
-        font=dict(color="#1e293b"),
-    )
+    layout = _get_default_scene_layout(height)
+    layout["showlegend"] = False
+    layout["scene"]["xaxis_title"] = "column index"
+    layout["scene"]["yaxis_title"] = "column index"
+    layout["scene"]["zaxis_title"] = "missing ratio"
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -395,18 +400,12 @@ def metrics_3d(metrics: dict[str, float], *, height: int = 460) -> None:
             )
         ]
     )
-    fig.update_layout(
-        height=height,
-        margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        scene=dict(
-            xaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-        ),
-        font=dict(color="#1e293b"),
-    )
+    layout = _get_default_scene_layout(height)
+    layout["showlegend"] = False
+    layout["scene"]["xaxis"]["showticklabels"] = False
+    layout["scene"]["yaxis"]["showticklabels"] = False
+    layout["scene"]["zaxis"]["showticklabels"] = False
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -465,16 +464,10 @@ def feature_importance_3d(importance: dict[str, float], *, height: int = 460) ->
             )
         ]
     )
-    fig.update_layout(
-        height=height,
-        margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        scene=dict(
-            xaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            yaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-            zaxis=dict(showbackground=False, showticklabels=False, gridcolor="rgba(156,176,205,0.12)"),
-        ),
-        font=dict(color="#1e293b"),
-    )
+    layout = _get_default_scene_layout(height)
+    layout["showlegend"] = False
+    layout["scene"]["xaxis"]["showticklabels"] = False
+    layout["scene"]["yaxis"]["showticklabels"] = False
+    layout["scene"]["zaxis"]["showticklabels"] = False
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
