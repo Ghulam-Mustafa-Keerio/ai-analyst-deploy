@@ -86,33 +86,46 @@ class DataSource(TypedDict):
 
 
 def _render_upload_source() -> None:
-    # [+] Bug Fix: Add a key to the file_uploader. This stores the uploaded file in
-    # st.session_state, making it accessible to the "Launch agent" section in
-    # serverless mode, which relies on st.session_state.get("file_uploader").
-    uploaded = st.file_uploader( # type: ignore
+    """Render upload UI and (non-serverless) upload action."""
+    uploaded = st.file_uploader(  # type: ignore
         "Dataset",
         type=["csv", "parquet"],
         help="CSV or Parquet. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
         key="file_uploader",
     )
-    if uploaded is not None:
-        size_mb = len(uploaded.getvalue()) / 1024 / 1024 if uploaded.getvalue() else 0
-        if size_mb > 4:
-            st.error(
-                f"`{uploaded.name}` is {size_mb:.1f} MB — the serverless backend accepts up to 4 MB. "
-                "Use a smaller sample or self-host the backend."
-            )
-        else:
-            st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
-        if not st.session_state.serverless and st.button("Register dataset", key="upload_register"): 
-            with st.spinner("Profiling dataset & detecting domain…"):
-                try:
-                    result = api_client.run(
-                        api_client.upload_dataset(st.session_state.api_base_url, uploaded.name, uploaded.getvalue())
+
+    if uploaded is None:
+        return
+
+    size_mb = len(uploaded.getvalue()) / 1024 / 1024 if uploaded.getvalue() else 0
+    if size_mb > 4:
+        st.error(
+            f"`{uploaded.name}` is {size_mb:.1f} MB — the serverless backend accepts up to 4 MB. "
+            "Use a smaller sample or self-host the backend."
+        )
+        return
+
+    st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
+
+    # In serverless mode we defer uploads until the "Start agent run" button,
+    # so this button is intentionally hidden.
+    if st.session_state.serverless:
+        return
+
+    if st.button("Register dataset", key="upload_register"):
+        with st.spinner("Profiling dataset & detecting domain…"):
+            try:
+                result = api_client.run(
+                    api_client.upload_dataset(
+                        st.session_state.api_base_url,
+                        uploaded.name,
+                        uploaded.getvalue(),
                     )
-                    _commit_dataset(result.get("dataset"), result.get("profile"))
-                except Exception as exc:
-                    st.error(f"Upload failed: {exc}")
+                )
+                _commit_dataset(result.get("dataset"), result.get("profile"))
+            except Exception as exc:
+                st.error(f"Upload failed: {exc}")
+
 
 def _render_sample_source() -> None:
     try:
