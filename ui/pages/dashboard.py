@@ -119,7 +119,10 @@ def _render_sample_source() -> None:
         samples = api_client.run(api_client.list_samples(st.session_state.api_base_url)).get("samples", [])
     except Exception as exc:
         samples = []
-        st.warning(f"Sample catalogue unavailable: {exc}")
+        if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 404:
+            st.info("Sample catalogue unavailable in this deployment.")
+        else:
+            st.warning(f"Sample catalogue unavailable: {exc}")
 
     if samples:
         choice: str | None = st.selectbox(
