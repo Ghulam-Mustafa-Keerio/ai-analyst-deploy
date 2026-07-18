@@ -107,14 +107,11 @@ def _render_upload_source() -> None:
 
     st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
 
-    # In serverless mode we defer uploads until the "Start agent run" button,
-    # so this button is intentionally hidden.
-    if st.session_state.serverless:
-        return
-
     if st.button("Register dataset", key="upload_register"):
+        st.caption("DEBUG: Register dataset button clicked")
         with st.spinner("Profiling dataset & detecting domain…"):
             try:
+                st.caption(f"DEBUG: Calling upload_dataset(filename={uploaded.name!r}, bytes={len(uploaded.getvalue())})")
                 result = api_client.run(
                     api_client.upload_dataset(
                         st.session_state.api_base_url,
@@ -122,6 +119,7 @@ def _render_upload_source() -> None:
                         uploaded.getvalue(),
                     )
                 )
+                st.caption("DEBUG: upload_dataset returned response")
                 _commit_dataset(result.get("dataset"), result.get("profile"))
             except Exception as exc:
                 st.error(f"Upload failed: {exc}")
