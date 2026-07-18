@@ -2,6 +2,6 @@
   "name": "agent-skills-hub",
   "version": "4.6.0",
   "dependencies": {
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.3"
   }
 }
