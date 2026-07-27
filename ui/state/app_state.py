@@ -17,6 +17,8 @@ def init_state() -> None:
         "job_id": None,
         "events": [],
         "last_experiments": [],
+        "authenticated": False,
+        "username": "",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)

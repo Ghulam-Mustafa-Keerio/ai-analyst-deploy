@@ -386,8 +386,16 @@ hr.soft {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes pulseGlow {
+    0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(37,99,235,0); }
+    100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
 .card, .metric, .node, .tl-row, .bubble, .empty {
     animation: fadeIn 0.3s ease-out;
+}
+.node.running .state {
+    animation: pulseGlow 2s infinite;
 }
 """
 

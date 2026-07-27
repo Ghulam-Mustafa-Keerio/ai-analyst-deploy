@@ -19,3 +19,7 @@ async def status_websocket(websocket: WebSocket, job_id: str) -> None:
         pass
     finally:
         await event_stream.disconnect(job_id, client)
+        try:
+            await websocket.close()
+        except Exception:
+            pass

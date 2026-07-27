@@ -40,16 +40,26 @@ def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
     """Run a coroutine from Streamlit's synchronous script context.
 
     Streamlit 1.59+ executes scripts inside a running asyncio event loop,
-    so ``asyncio.run`` raises "cannot be called from a running event loop".
-    We reuse the active loop when present, otherwise fall back to asyncio.run.
+    so both ``asyncio.run`` and ``loop.run_until_complete`` raise errors.
+    We run the coroutine in a fresh loop on a background thread so it works
+    regardless of whether a loop is already running.
     """
     import asyncio
+    import concurrent.futures
+
+    def _run_in_new_loop() -> Any:
+        return asyncio.run(coro)
 
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
+        # A loop is running — we cannot use asyncio.run() or run_until_complete()
+        # on this thread. Spawn a worker thread with its own event loop.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run_in_new_loop)
+            return future.result()
     except RuntimeError:
+        # No running loop — safe to use asyncio.run directly.
         return asyncio.run(coro)
-    return loop.run_until_complete(coro)
 
 
 async def health(api_base_url: str) -> dict[str, Any]:

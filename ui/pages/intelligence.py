@@ -48,7 +48,7 @@ def render_intelligence() -> None:
     # [+] Bug Fix: The WebSocket client was imported but never called, breaking live updates.
     # This re-enables the live event stream for self-hosted runs.
     if not st.session_state.serverless:
-        event_client(st.session_state.api_base_url, job_id)
+        event_client.start(st.session_state.ws_base_url, job_id)
 
     job_status = None
     try:

@@ -45,6 +45,10 @@ def _columns_from_upload(uploaded: Any) -> list[str]:
         suffix = uploaded.name.lower()
         if suffix.endswith(".parquet"):
             return list(pd.read_parquet(io.BytesIO(uploaded.getvalue())).columns)
+        if suffix.endswith(".json"):
+            return list(pd.read_json(io.BytesIO(uploaded.getvalue())).columns)
+        if suffix.endswith(".xls") or suffix.endswith(".xlsx"):
+            return list(pd.read_excel(io.BytesIO(uploaded.getvalue()), nrows=1).columns)
         return list(pd.read_csv(io.BytesIO(uploaded.getvalue()), nrows=1).columns) # type: ignore
     except Exception:
         return []
@@ -91,29 +95,32 @@ def _render_upload_source() -> None:
     # serverless mode, which relies on st.session_state.get("file_uploader").
     uploaded = st.file_uploader( # type: ignore
         "Dataset",
-        type=["csv", "parquet"],
-        help="CSV or Parquet. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
+        type=["csv", "parquet", "json", "xls", "xlsx"],
+        help="CSV, Parquet, JSON, or Excel. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
         key="file_uploader",
     )
-    if uploaded is not None:
-        size_mb = len(uploaded.getvalue()) / 1024 / 1024 if uploaded.getvalue() else 0
-        if size_mb > 4:
-            st.error(
-                f"`{uploaded.name}` is {size_mb:.1f} MB — the serverless backend accepts up to 4 MB. "
-                "Use a smaller sample or self-host the backend."
-            )
-        else:
-            st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
-        if not st.session_state.serverless and st.button("Register dataset", key="upload_register"): 
-            with st.spinner("Profiling dataset & detecting domain…"):
-                try:
-                    result = api_client.run(
-                        api_client.upload_dataset(st.session_state.api_base_url, uploaded.name, uploaded.getvalue())
-                    )
-                    _commit_dataset(result.get("dataset"), result.get("profile"))
-                except Exception as exc:
-                    st.error(f"Upload failed: {exc}")
+    if uploaded is None:
+        return
 
+    size_mb = len(uploaded.getvalue()) / 1024 / 1024 if uploaded.getvalue() else 0
+    if size_mb > 4:
+        st.error(
+            f"`{uploaded.name}` is {size_mb:.1f} MB — the serverless backend accepts up to 4 MB. "
+            "Use a smaller sample or self-host the backend."
+        )
+        return
+
+    st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
+    
+    if not st.session_state.get("serverless", False) and st.button("Register dataset", key="upload_register"): 
+        with st.spinner("Profiling dataset & detecting domain…"):
+            try:
+                result = api_client.run(
+                    api_client.upload_dataset(st.session_state.api_base_url, uploaded.name, uploaded.getvalue())
+                )
+                _commit_dataset(result.get("dataset"), result.get("profile"))
+            except Exception as exc:
+                st.error(f"Upload failed: {exc}")
 def _render_sample_source() -> None:
     try:
         samples = api_client.run(api_client.list_samples(st.session_state.api_base_url)).get("samples", [])
@@ -266,14 +273,14 @@ def render_dashboard() -> None:
                     for column, dtype in dataset.get("schema", {}).items()
                 ]
             )
-            st.dataframe(schema_df, width="stretch", hide_index=True)
+            st.dataframe(schema_df, use_container_width=True, hide_index=True)
     
             try:
                 preview_data = api_client.run(
                     api_client.preview_dataset(st.session_state.api_base_url, dataset["dataset_id"], page=1, page_size=50)
                 )
                 preview_df = pd.DataFrame(preview_data["rows"])
-                st.dataframe(preview_df, width="stretch", hide_index=True)
+                st.dataframe(preview_df, use_container_width=True, hide_index=True)
             except Exception as exc:
                 st.warning(f"Unable to load preview: {exc}")
     
