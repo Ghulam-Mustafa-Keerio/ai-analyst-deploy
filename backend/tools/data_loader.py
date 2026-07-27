@@ -11,8 +11,15 @@ async def read_dataset(path: str | Path, *, nrows: int | None = None) -> pd.Data
     file_path = Path(path)
 
     def _read() -> pd.DataFrame:
-        if file_path.suffix.lower() == ".parquet":
+        ext = file_path.suffix.lower()
+        if ext == ".parquet":
             return pd.read_parquet(file_path)
+        if ext == ".json":
+            return pd.read_json(file_path)
+        if ext in {".xls", ".xlsx"}:
+            if nrows:
+                return pd.read_excel(file_path, nrows=nrows)
+            return pd.read_excel(file_path)
         return pd.read_csv(file_path, nrows=nrows)
 
     return await asyncio.to_thread(_read)
@@ -34,10 +41,9 @@ async def profile_dataset(path: str | Path) -> dict[str, Any]:
 async def preview_dataset(path: str | Path, *, page: int = 1, page_size: int = 100) -> dict[str, Any]:
     offset = max(page - 1, 0) * page_size
     file_path = Path(path)
-    if file_path.suffix.lower() == ".parquet":
+    if file_path.suffix.lower() in {".parquet", ".json"}:
         df = await read_dataset(file_path)
-        page_df = df.iloc[offset : offset + page_size]
     else:
         df = await read_dataset(file_path, nrows=offset + page_size)
-        page_df = df.iloc[offset : offset + page_size]
+    page_df = df.iloc[offset : offset + page_size]
     return {"page": page, "page_size": page_size, "rows": page_df.to_dict(orient="records")}

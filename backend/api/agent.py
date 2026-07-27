@@ -83,8 +83,8 @@ async def run_agent(file: UploadFile = File(...), request: RunAgentRequest = Run
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
     suffix = Path(file.filename).suffix.lower()
-    if suffix not in {".csv", ".parquet"}:
-        raise HTTPException(status_code=400, detail="Only CSV and Parquet datasets are supported.")
+    if suffix not in {".csv", ".parquet", ".json", ".xls", ".xlsx"}:
+        raise HTTPException(status_code=400, detail="Only CSV, Parquet, JSON, and Excel datasets are supported.")
 
     content = await file.read()
     if len(content) > 4 * 1024 * 1024:

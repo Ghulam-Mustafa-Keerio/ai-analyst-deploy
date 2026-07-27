@@ -192,7 +192,10 @@ async def resolve_dataset(
 
         def _extract() -> Path:
             engine = create_engine(source_url)
-            sql = query or f"SELECT * FROM {table}" if table else None
+            # Explicit precedence: prefer the custom query; fall back to a table
+            # SELECT.  NOTE: ``table`` is interpolated directly — callers must
+            # validate/sanitise it to prevent SQL injection.
+            sql = query or (f"SELECT * FROM {table}" if table else None)
             if not sql:
                 raise ValueError("SQL source requires a table or query.")
             df = pd.read_sql(text(sql), engine)
@@ -321,7 +324,12 @@ def _read_rest(source_url: str, data_key: str) -> pd.DataFrame:
 
         payload = httpx.get(source_url, timeout=60, follow_redirects=True).json()
     else:
-        payload = pd.read_json(source_url)
+        # Use json.load to get a dict/list (pd.read_json returns a DataFrame,
+        # which breaks the isinstance(payload, dict) checks below).
+        import json as _json
+
+        with open(source_url, encoding="utf-8") as fh:
+            payload = _json.load(fh)
     if isinstance(payload, dict) and data_key in payload:
         payload = payload[data_key]
     if isinstance(payload, list):

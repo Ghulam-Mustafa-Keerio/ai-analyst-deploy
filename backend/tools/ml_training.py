@@ -36,13 +36,30 @@ def infer_task_from_profile(profile: dict[str, Any], target: str | None) -> str:
         return "classification"
     schema = profile.get("schema", {})
     dtype = schema.get(target, "")
-    kind = str(dtype)[0] if dtype else ""
-    # Numeric with many distinct values -> likely regression; else classification.
+    # Numeric types whose dtype string starts with int/float/uint.
+    is_numeric = any(dtype.lower().startswith(t) for t in ("int", "float", "uint"))
+    if not is_numeric:
+        return "classification"
+    # For numeric targets, check the count of distinct values from the numeric
+    # summary.  ``DataFrame.describe()`` stores ``count`` (non-null rows), not
+    # unique values.  A safer heuristic: if std is very small relative to count
+    # (i.e. values cluster tightly), or the column name hints at a label, treat
+    # as classification.  Without unique count in the summary, we fall back to
+    # a dtype-based guess: integers with count <= 20 are likely categorical.
     numeric_summary = profile.get("numeric_summary", {}).get(target)
-    if kind in "ifu" and numeric_summary:
+    if numeric_summary:
         try:
-            distinct = numeric_summary.get("count", 0)
-            if isinstance(distinct, (int, float)) and distinct > 20:
+            count = numeric_summary.get("count", 0)
+            std = numeric_summary.get("std", 1)
+            # Low std relative to range suggests few distinct values.
+            mean_val = numeric_summary.get("mean", 0)
+            min_val = numeric_summary.get("min", 0)
+            max_val = numeric_summary.get("max", 0)
+            value_range = max_val - min_val
+            # If the range is small (e.g. 0-1, 0-10) it's likely categorical.
+            if isinstance(value_range, (int, float)) and value_range <= 20:
+                return "classification"
+            if isinstance(count, (int, float)) and count > 20:
                 return "regression"
         except (TypeError, AttributeError):
             pass
@@ -68,10 +85,10 @@ def build_model(model_name: str, task: str) -> Any:
         "knn": KNeighborsRegressor(),
     }
     clf = {
-        "linear": LogisticRegression(max_iter=1000),
-        "random_forest": RandomForestClassifier(n_estimators=120, random_state=42),
+        "linear": LogisticRegression(max_iter=1000, class_weight="balanced"),
+        "random_forest": RandomForestClassifier(n_estimators=120, random_state=42, class_weight="balanced"),
         "gradient_boosting": GradientBoostingClassifier(random_state=42),
-        "svm": SVC(probability=True, random_state=42),
+        "svm": SVC(probability=True, random_state=42, class_weight="balanced"),
         "knn": KNeighborsClassifier(),
     }
     return reg[model_name] if task == "regression" else clf[model_name]
@@ -141,23 +158,7 @@ async def train_model(
         base_model = build_model(model_name, task)
         pipeline = Pipeline([("preprocessor", preprocessor), ("model", base_model)])
 
-        # --- Hyperparameter optimization (light, deterministic) -----------
-        param_grid = _param_grid(model_name, task)
-        if param_grid:
-            cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42) if task == "classification" else KFold(n_splits=3, shuffle=True, random_state=42)
-            try:
-                search = GridSearchCV(pipeline, param_grid, cv=cv, scoring="f1_weighted" if task == "classification" else "r2", n_jobs=1)
-                search.fit(X, y)
-                pipeline = search.best_estimator_
-                best_params = search.best_params_
-            except Exception:
-                pipeline.fit(X, y)
-                best_params = {}
-        else:
-            pipeline.fit(X, y)
-            best_params = {}
-
-        # --- Held-out evaluation ----------------------------------------
+        # --- Split first so HPO and evaluation both use the held-out set ----
         stratify = y if task == "classification" and y.value_counts().min() > 1 else None
         n_classes = int(y.nunique(dropna=True)) if task == "classification" else 1
         X_train, X_test, y_train, y_test = train_test_split(
@@ -167,7 +168,24 @@ async def train_model(
             random_state=42,
             stratify=stratify,
         )
-        pipeline.fit(X_train, y_train)
+
+        # --- Hyperparameter optimization (light, deterministic) -----------
+        param_grid = _param_grid(model_name, task)
+        if param_grid:
+            cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42) if task == "classification" else KFold(n_splits=3, shuffle=True, random_state=42)
+            try:
+                search = GridSearchCV(pipeline, param_grid, cv=cv, scoring="f1_weighted" if task == "classification" else "r2", n_jobs=1)
+                search.fit(X_train, y_train)
+                pipeline = search.best_estimator_
+                best_params = search.best_params_
+            except Exception:
+                pipeline.fit(X_train, y_train)
+                best_params = {}
+        else:
+            pipeline.fit(X_train, y_train)
+            best_params = {}
+
+        # --- Held-out evaluation (no re-fitting) --------------------------
         predictions = pipeline.predict(X_test)
         if task == "regression":
             metrics = {"r2": float(r2_score(y_test, predictions)), "mae": float(mean_absolute_error(y_test, predictions))}
@@ -185,6 +203,7 @@ async def train_model(
             metrics["cv_mean"] = metrics.get("r2", metrics.get("accuracy", 0.0))
             metrics["cv_std"] = 0.0
 
+        # --- Feature importance (aggregated to original feature names) ----
         model = pipeline.named_steps["model"]
         importances = getattr(model, "feature_importances_", None)
         if importances is None:
@@ -193,9 +212,34 @@ async def train_model(
                 importances = importances.ravel()
         feature_importance = []
         if importances is not None:
-            for feature, importance in zip(features, importances[: len(features)], strict=False):
-                if math.isfinite(float(importance)):
-                    feature_importance.append({"feature": feature, "importance": float(importance)})
+            # After one-hot encoding, the model has more features than the
+            # original input.  Map encoded feature names back to original
+            # columns and sum their importances.
+            try:
+                encoded_names = pipeline.named_steps["preprocessor"].get_feature_names_out()
+                aggregated: dict[str, float] = {f: 0.0 for f in features}
+                for enc_name, imp in zip(encoded_names, importances, strict=False):
+                    # Encoded names look like "num__age" or "cat__sex_male".
+                    # The original column is the part after the prefix, before
+                    # any one-hot suffix.
+                    bare = enc_name.split("__", 1)[-1] if "__" in enc_name else enc_name
+                    matched = False
+                    for orig in features:
+                        if bare == orig or bare.startswith(orig + "_"):
+                            aggregated[orig] += abs(float(imp))
+                            matched = True
+                            break
+                    if not matched:
+                        # Fallback: unmatched encoded feature — skip.
+                        pass
+                for feat, imp_val in aggregated.items():
+                    if math.isfinite(imp_val):
+                        feature_importance.append({"feature": feat, "importance": imp_val})
+            except Exception:
+                # Fallback: use the simple zip approach (pre-encoding only).
+                for feature, importance in zip(features, importances[: len(features)], strict=False):
+                    if math.isfinite(float(importance)):
+                        feature_importance.append({"feature": feature, "importance": float(importance)})
         feature_importance.sort(key=lambda item: item["importance"], reverse=True)
 
         result: dict[str, Any] = {

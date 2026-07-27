@@ -45,6 +45,10 @@ def _columns_from_upload(uploaded: Any) -> list[str]:
         suffix = uploaded.name.lower()
         if suffix.endswith(".parquet"):
             return list(pd.read_parquet(io.BytesIO(uploaded.getvalue())).columns)
+        if suffix.endswith(".json"):
+            return list(pd.read_json(io.BytesIO(uploaded.getvalue())).columns)
+        if suffix.endswith(".xls") or suffix.endswith(".xlsx"):
+            return list(pd.read_excel(io.BytesIO(uploaded.getvalue()), nrows=1).columns)
         return list(pd.read_csv(io.BytesIO(uploaded.getvalue()), nrows=1).columns) # type: ignore
     except Exception:
         return []
@@ -89,8 +93,8 @@ def _render_upload_source() -> None:
     """Render upload UI and (non-serverless) upload action."""
     uploaded = st.file_uploader(  # type: ignore
         "Dataset",
-        type=["csv", "parquet"],
-        help="CSV or Parquet. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
+        type=["csv", "parquet", "json", "xls", "xlsx"],
+        help="CSV, Parquet, JSON, or Excel. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
         key="file_uploader",
     )
 
@@ -108,10 +112,8 @@ def _render_upload_source() -> None:
     st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
 
     if st.button("Register dataset", key="upload_register"):
-        st.caption("DEBUG: Register dataset button clicked")
         with st.spinner("Profiling dataset & detecting domain…"):
             try:
-                st.caption(f"DEBUG: Calling upload_dataset(filename={uploaded.name!r}, bytes={len(uploaded.getvalue())})")
                 result = api_client.run(
                     api_client.upload_dataset(
                         st.session_state.api_base_url,
@@ -119,7 +121,6 @@ def _render_upload_source() -> None:
                         uploaded.getvalue(),
                     )
                 )
-                st.caption("DEBUG: upload_dataset returned response")
                 _commit_dataset(result.get("dataset"), result.get("profile"))
             except Exception as exc:
                 st.error(f"Upload failed: {exc}")
@@ -280,14 +281,14 @@ def render_dashboard() -> None:
                     for column, dtype in dataset.get("schema", {}).items()
                 ]
             )
-            st.dataframe(schema_df, width="stretch", hide_index=True)
+            st.dataframe(schema_df, use_container_width=True, hide_index=True)
     
             try:
                 preview_data = api_client.run(
                     api_client.preview_dataset(st.session_state.api_base_url, dataset["dataset_id"], page=1, page_size=50)
                 )
                 preview_df = pd.DataFrame(preview_data["rows"])
-                st.dataframe(preview_df, width="stretch", hide_index=True)
+                st.dataframe(preview_df, use_container_width=True, hide_index=True)
             except Exception as exc:
                 st.warning(f"Unable to load preview: {exc}")
     

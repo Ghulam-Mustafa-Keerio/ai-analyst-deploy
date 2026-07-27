@@ -24,6 +24,11 @@ st.set_page_config(
 apply_theme()
 init_state()
 
+if not st.session_state.get("authenticated", False):
+    from ui.pages.auth import render_auth
+    render_auth()
+    st.stop()
+
 
 def _connection_status() -> None:
     """Show a small live indicator for the configured backend."""
@@ -50,9 +55,9 @@ with st.sidebar:
 
     page = st.radio(
         "Workspace",
-        ["Dashboard", "Intelligence", "Advisor"],
+        ["Overview", "Dashboard", "Intelligence", "Advisor"],
         label_visibility="collapsed",
-        captions=["Upload & launch", "Live reasoning", "Experiment Q&A"],
+        captions=["Platform guidelines", "Upload & launch", "Live reasoning", "Experiment Q&A"],
     )
 
     st.divider()
@@ -70,15 +75,15 @@ with st.sidebar:
         )
         _connection_status()
 
-if page == "Dashboard":
+if page == "Overview":
+    from ui.pages.overview import render_overview
+    render_overview()
+elif page == "Dashboard":
     from ui.pages.dashboard import render_dashboard
-
     render_dashboard()
 elif page == "Intelligence":
     from ui.pages.intelligence import render_intelligence
-
     render_intelligence()
 else:
     from ui.pages.advisor import render_advisor
-
     render_advisor()
