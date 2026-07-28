@@ -17,6 +17,7 @@ import io
 import pandas as pd
 import streamlit as st
 
+from backend.tools.dashboard_plan import build_dashboard_plan
 from ui.components.feedback import empty_state
 from ui.components.feature_selector import feature_selector
 from ui.components.metric_card import metric_card
@@ -26,13 +27,61 @@ from ui.services import api_client
 def _commit_dataset(dataset: dict[str, Any], profile: dict[str, Any]) -> None:
     """Store a freshly registered dataset in session state and notify the user."""
     # [+] Reliability: Use .get() for safer dictionary access.
+    if not isinstance(profile, dict):
+        profile = {}
+    if not isinstance(dataset, dict):
+        dataset = {}
+    profile.setdefault("dashboard", build_dashboard_plan(_dataset_columns(dataset), profile))
     st.session_state.dataset = dataset or {}
     st.session_state.profile = profile or {}
     st.session_state.events = []
     st.session_state.job_id = None
-    filename = dataset.get("filename", "Unknown file")
-    rows = dataset.get("rows", 0)
+    filename = dataset.get("filename", "Unknown file") if isinstance(dataset, dict) else "Unknown file"
+    rows = dataset.get("rows", 0) if isinstance(dataset, dict) else 0
     st.success(f"Registered `{filename}` ({rows:,} rows).")
+
+
+def _dataset_schema(dataset: Any) -> dict[str, Any]:
+    """Return a schema mapping from a dataset payload when available."""
+    if not isinstance(dataset, dict):
+        return {}
+    schema = dataset.get("schema")
+    return schema if isinstance(schema, dict) else {}
+
+
+def _dataset_columns(dataset: Any) -> list[str]:
+    """Return the ordered column names from a dataset payload when available."""
+    return list(_dataset_schema(dataset).keys())
+
+
+def _dataset_id(dataset: Any) -> str:
+    """Return a dataset id string from a dataset payload when available."""
+    if not isinstance(dataset, dict):
+        return ""
+    dataset_id = dataset.get("dataset_id")
+    return dataset_id if isinstance(dataset_id, str) else ""
+
+
+def _uploaded_bytes(uploaded: Any) -> int:
+    """Return the byte size of an uploaded file, even if the uploader object is missing a payload."""
+    if uploaded is None:
+        return 0
+    try:
+        payload = uploaded.getvalue()
+    except Exception:
+        payload = b""
+    if isinstance(payload, (bytes, bytearray)):
+        return len(payload)
+    return 0
+
+
+def _dashboard_plan(dataset: Any, profile: Any) -> dict[str, Any]:
+    """Return a domain-aware dashboard plan, using the server payload when present."""
+    if isinstance(profile, dict) and isinstance(profile.get("dashboard"), dict):
+        return profile["dashboard"]
+    if isinstance(dataset, dict):
+        return build_dashboard_plan(_dataset_columns(dataset), profile if isinstance(profile, dict) else None)
+    return build_dashboard_plan([], profile if isinstance(profile, dict) else None)
 
 
 def _columns_from_upload(uploaded: Any) -> list[str]:
@@ -42,14 +91,15 @@ def _columns_from_upload(uploaded: Any) -> list[str]:
     the column list up-front to let the user pick a target/features.
     """
     try:
-        suffix = uploaded.name.lower()
+        payload = uploaded.getvalue() if uploaded is not None else b""
+        suffix = getattr(uploaded, "name", "").lower()
         if suffix.endswith(".parquet"):
-            return list(pd.read_parquet(io.BytesIO(uploaded.getvalue())).columns)
+            return list(pd.read_parquet(io.BytesIO(payload)).columns)
         if suffix.endswith(".json"):
-            return list(pd.read_json(io.BytesIO(uploaded.getvalue())).columns)
+            return list(pd.read_json(io.BytesIO(payload)).columns)
         if suffix.endswith(".xls") or suffix.endswith(".xlsx"):
-            return list(pd.read_excel(io.BytesIO(uploaded.getvalue()), nrows=1).columns)
-        return list(pd.read_csv(io.BytesIO(uploaded.getvalue()), nrows=1).columns) # type: ignore
+            return list(pd.read_excel(io.BytesIO(payload), nrows=1).columns)
+        return list(pd.read_csv(io.BytesIO(payload), nrows=1).columns)  # type: ignore
     except Exception:
         return []
 
@@ -93,26 +143,31 @@ def _render_upload_source() -> None:
     # [+] Bug Fix: Add a key to the file_uploader. This stores the uploaded file in
     # st.session_state, making it accessible to the "Launch agent" section in
     # serverless mode, which relies on st.session_state.get("file_uploader").
-    uploaded = st.file_uploader( # type: ignore
+    limit_mb = api_client.get_max_upload_mb()
+    uploaded = st.file_uploader(  # type: ignore
         "Dataset",
         type=["csv", "parquet", "json", "xls", "xlsx"],
-        help="CSV, Parquet, JSON, or Excel. On the serverless backend, files up to 4 MB are uploaded and analysed in a single request.",
+        help=(
+            "CSV, Parquet, JSON, or Excel. On the serverless backend, files up to "
+            f"{limit_mb} MB are uploaded and analysed in a single request."
+        ),
         key="file_uploader",
     )
     if uploaded is None:
         return
 
-    size_mb = len(uploaded.getvalue()) / 1024 / 1024 if uploaded.getvalue() else 0
-    if size_mb > 4:
+    size_bytes = _uploaded_bytes(uploaded)
+    size_mb = size_bytes / 1024 / 1024 if size_bytes else 0
+    if size_mb > limit_mb:
         st.error(
-            f"`{uploaded.name}` is {size_mb:.1f} MB — the serverless backend accepts up to 4 MB. "
+            f"`{getattr(uploaded, 'name', 'uploaded file')}` is {size_mb:.1f} MB — the serverless backend accepts up to {limit_mb} MB. "
             "Use a smaller sample or self-host the backend."
         )
         return
 
-    st.caption(f"{uploaded.name} · {size_mb:.2f} MB")
-    
-    if not st.session_state.get("serverless", False) and st.button("Register dataset", key="upload_register"): 
+    st.caption(f"{getattr(uploaded, 'name', 'uploaded file')} · {size_mb:.2f} MB")
+
+    if not st.session_state.get("serverless", False) and st.button("Register dataset", key="upload_register"):
         with st.spinner("Profiling dataset & detecting domain…"):
             try:
                 result = api_client.run(
@@ -201,10 +256,11 @@ def render_dashboard() -> None:
         if source["label"] == selected_label:
             source["renderer"]()
             break
-    dataset = st.session_state.get("dataset")
-    profile = st.session_state.get("profile")
+    dataset = st.session_state.get("dataset") or {}
+    profile = st.session_state.get("profile") or {}
     uploaded_file = st.session_state.get("file_uploader")
-    serverless_upload_ready = st.session_state.serverless and uploaded_file is not None and (not dataset or not profile)
+    serverless_enabled = bool(st.session_state.get("serverless", False))
+    serverless_upload_ready = serverless_enabled and uploaded_file is not None and (not dataset or not profile)
 
     if not dataset or not profile:
         if not serverless_upload_ready:
@@ -275,19 +331,33 @@ def render_dashboard() -> None:
                     st.markdown(domain_info["content"])
                 except Exception as exc:
                     st.info(f"Domain reference unavailable: {exc}")
+
+        dashboard_plan = _dashboard_plan(dataset, profile)
+        with st.expander("📊 Domain-based dashboard blueprint", expanded=True):
+            st.caption(dashboard_plan.get("summary", "A tailored analytics blueprint for this dataset."))
+            st.markdown(f"**{dashboard_plan.get('title', 'Analytics dashboard')}**")
+            st.write("Recommended metrics")
+            for metric in dashboard_plan.get("recommended_metrics", []):
+                st.write(f"- {metric}")
+            st.write("Recommended charts")
+            for chart in dashboard_plan.get("recommended_charts", []):
+                st.write(f"- {chart}")
+            if dashboard_plan.get("filters"):
+                st.write("Suggested filters")
+                st.write("- " + "\n- ".join(dashboard_plan["filters"]))
     
         with st.expander("Schema & missingness", expanded=False):
             schema_df = pd.DataFrame(
                 [
                     {"column": column, "dtype": dtype, "missing_ratio": profile.get("missing_ratio", {}).get(column, 0)}
-                    for column, dtype in dataset.get("schema", {}).items()
+                    for column, dtype in _dataset_schema(dataset).items()
                 ]
             )
             st.dataframe(schema_df, use_container_width=True, hide_index=True)
     
             try:
                 preview_data = api_client.run(
-                    api_client.preview_dataset(st.session_state.api_base_url, dataset["dataset_id"], page=1, page_size=50)
+                    api_client.preview_dataset(st.session_state.api_base_url, _dataset_id(dataset), page=1, page_size=50)
                 )
                 preview_df = pd.DataFrame(preview_data["rows"])
                 st.dataframe(preview_df, use_container_width=True, hide_index=True)
@@ -300,7 +370,7 @@ def render_dashboard() -> None:
             try:
                 from ui.components.plot_3d import schema_3d
     
-                schema_3d(dataset.get("schema", {}), profile.get("missing_ratio", {}))
+                schema_3d(_dataset_schema(dataset), profile.get("missing_ratio", {}))
             except Exception as exc:
                 st.info(f"3D schema unavailable: {exc}")
 
@@ -310,12 +380,24 @@ def render_dashboard() -> None:
             "Your uploaded file is ready for serverless analysis. "
             "The dataset will be profiled and analyzed when you click Start agent run."
         )
+        uploaded_file = st.session_state.get("file_uploader")
+        if uploaded_file is not None:
+            dashboard_plan = build_dashboard_plan(_columns_from_upload(uploaded_file), {"domain": {"domain": "general"}})
+            with st.expander("📊 Domain-based dashboard blueprint", expanded=True):
+                st.caption(dashboard_plan.get("summary", "A tailored analytics blueprint for this dataset."))
+                st.markdown(f"**{dashboard_plan.get('title', 'Analytics dashboard')}**")
+                st.write("Recommended metrics")
+                for metric in dashboard_plan.get("recommended_metrics", []):
+                    st.write(f"- {metric}")
+                st.write("Recommended charts")
+                for chart in dashboard_plan.get("recommended_charts", []):
+                    st.write(f"- {chart}")
 
     # ---- Launch ----------------------------------------------------------
     st.markdown('<hr class="soft">', unsafe_allow_html=True)
     st.subheader("3 · Launch agent pipeline")
 
-    if st.session_state.serverless:
+    if serverless_enabled:
         # Re-fetch the uploaded file from the file_uploader's state if needed for serverless mode
         uploaded_file = st.session_state.get("file_uploader")
         if uploaded_file is None:
@@ -323,7 +405,7 @@ def render_dashboard() -> None:
             return
         columns = _columns_from_upload(uploaded_file)
     else:
-        columns = list(dataset.get("schema", {}))
+        columns = _dataset_columns(dataset)
     mode = st.radio("Autonomy", ["manual", "assisted", "autonomous"], index=2, horizontal=True)
     target = st.selectbox("Target column", columns, index=max(len(columns) - 1, 0))
     model = None
@@ -335,7 +417,7 @@ def render_dashboard() -> None:
         features = feature_selector(columns, target)
 
     if st.button("Start agent run", use_container_width=True): 
-        if st.session_state.serverless:
+        if serverless_enabled:
             if uploaded_file is None:
                 st.error("Upload a dataset first.")
             else:
@@ -362,7 +444,7 @@ def render_dashboard() -> None:
                 started = api_client.run(
                     api_client.start_agent(
                         st.session_state.api_base_url,
-                        dataset_id=dataset["dataset_id"],
+                        dataset_id=_dataset_id(dataset),
                         mode=mode,
                         target=target,
                         features=features,

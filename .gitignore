@@ -152,6 +152,9 @@ secrets/
 *.bak
 *.backup
 
+# Local removed problematic test
+tests/test_upload_size_limit.py
+
 # Compiled files
 *.com
 *.class

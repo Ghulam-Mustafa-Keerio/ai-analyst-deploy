@@ -84,7 +84,18 @@ pytest
 
 ## Domain Alignment
 
-Uploaded datasets are profiled for likely business domain using column names. The detected domain is emitted in the `DataProfilerAgent` event payload and available to downstream agents for domain-specific strategy, metrics, and explanations.
+Uploaded datasets are profiled for a likely business domain using column names. The detected domain is emitted in the `DataProfilerAgent` event payload and attached to the dataset `profile` as `profile["domain"]` and a small, actionable dashboard blueprint at `profile["dashboard"]`.
+
+UI usage (quick):
+
+- Open the app: http://127.0.0.1:8501 (after running the backend)
+- Upload a dataset on the Dashboard (CSV, Parquet, JSON, Excel). The UI shows a pre-run blueprint derived from column names and the detected domain.
+- On serverless backends (Vercel), large uploads may fail — the serverless upload cap is controlled by the environment variable `SERVERLESS_MAX_UPLOAD_MB` (defaults to `4`).
+
+Where to configure:
+
+- Backend: set `SERVERLESS_MAX_UPLOAD_MB` and `VERCEL` environment variables for serverless behaviour.
+- Frontend: `ui/README.md` contains user-facing instructions and tips for the Streamlit app.
 
 ## Hybrid LLM Layer
 

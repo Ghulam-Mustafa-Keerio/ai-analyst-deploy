@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.memory.dataset_memory import dataset_memory
+from backend.tools.dashboard_plan import build_dashboard_plan
 from backend.tools.data_loader import profile_dataset
 from backend.tools.data_sources import (
     DataSourceType,
@@ -58,6 +59,7 @@ async def connect_source(request: ConnectRequest) -> dict:
 
     profile = await profile_dataset(path)
     profile["domain"] = detect_domain(list(profile["schema"]))
+    profile["dashboard"] = build_dashboard_plan(list(profile["schema"]), profile)
     record = dataset_memory.register(
         filename=request.filename or f"{request.source_type.value}_source",
         path=path,

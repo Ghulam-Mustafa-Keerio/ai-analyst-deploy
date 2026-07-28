@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from backend.agents.runtime import agent_runtime
 from backend.memory.dataset_memory import dataset_memory
 from backend.memory.experiment_store import experiment_store
+from backend.tools.dashboard_plan import build_dashboard_plan
 from backend.tools.data_loader import preview_dataset, profile_dataset
 from backend.tools.domain_detection import available_domains, detect_domain
 from backend.tools.evaluation import compare_experiments
@@ -24,6 +25,14 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 SERVERLESS = bool(os.environ.get("VERCEL"))
 
 UPLOAD_DIR = Path("/tmp/data/uploads") if SERVERLESS else Path("data/uploads")
+
+
+def get_max_upload_bytes() -> int:
+    """Return the maximum upload size for the current backend configuration."""
+    try:
+        return max(1, int(os.environ.get("SERVERLESS_MAX_UPLOAD_MB", "4"))) * 1024 * 1024
+    except ValueError:
+        return 4 * 1024 * 1024
 
 
 class StartAgentRequest(BaseModel):
@@ -87,10 +96,12 @@ async def run_agent(file: UploadFile = File(...), request: RunAgentRequest = Run
         raise HTTPException(status_code=400, detail="Only CSV, Parquet, JSON, and Excel datasets are supported.")
 
     content = await file.read()
-    if len(content) > 4 * 1024 * 1024:
+    max_upload_bytes = get_max_upload_bytes()
+    if len(content) > max_upload_bytes:
+        max_upload_mb = max_upload_bytes // (1024 * 1024)
         raise HTTPException(
             status_code=413,
-            detail="Dataset is too large for serverless deployment (max 4 MB). Use a smaller sample or self-host the backend.",
+            detail=f"Dataset is too large for serverless deployment (max {max_upload_mb} MB). Use a smaller sample or self-host the backend.",
         )
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -100,6 +111,7 @@ async def run_agent(file: UploadFile = File(...), request: RunAgentRequest = Run
 
     profile = await profile_dataset(path)
     profile["domain"] = detect_domain(list(profile["schema"]))
+    profile["dashboard"] = build_dashboard_plan(list(profile["schema"]), profile)
     record = dataset_memory.register(
         filename=file.filename,
         path=path,

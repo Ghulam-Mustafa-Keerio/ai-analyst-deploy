@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from functools import wraps
 from typing import Any, Callable, Coroutine
 
@@ -7,18 +8,24 @@ import httpx
 import streamlit as st
 
 
-# Vercel serverless functions cap the request body (~4.5 MB). Uploads
-# larger than this will fail with HTTP 413, so we guard early with a
-# clear, user-facing message instead of a cryptic server error.
-MAX_UPLOAD_BYTES = 4 * 1024 * 1024
-MAX_UPLOAD_MB = MAX_UPLOAD_BYTES // (1024 * 1024)
+def get_max_upload_mb() -> int:
+    try:
+        return max(1, int(os.environ.get("SERVERLESS_MAX_UPLOAD_MB", "4")))
+    except ValueError:
+        return 4
+
+
+MAX_UPLOAD_MB = get_max_upload_mb()
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 
 def _guard_size(filename: str, content: bytes) -> None:
-    if len(content) > MAX_UPLOAD_BYTES:
+    limit_mb = get_max_upload_mb()
+    limit_bytes = limit_mb * 1024 * 1024
+    if len(content) > limit_bytes:
         raise ValueError(
             f"`{filename}` is {len(content) / 1024 / 1024:.1f} MB, "
-            f"but the serverless backend accepts files up to {MAX_UPLOAD_MB} MB. "
+            f"but the serverless backend accepts files up to {limit_mb} MB. "
             "Use a smaller sample or self-host the backend."
         )
 

@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from backend.memory.dataset_memory import dataset_memory
+from backend.tools.dashboard_plan import build_dashboard_plan
 from backend.tools.data_loader import profile_dataset
 
 
@@ -16,9 +17,13 @@ import os
 router = APIRouter(prefix="/upload", tags=["upload"])
 UPLOAD_DIR = Path("/tmp/data/uploads") if os.environ.get("VERCEL") else Path("data/uploads")
 
-# Vercel serverless functions cap the request body (~4.5 MB). Reject larger
-# uploads early with a clear error instead of a generic 413.
-MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+
+def get_max_upload_bytes() -> int:
+    """Return the maximum upload size for the current backend configuration."""
+    try:
+        return max(1, int(os.environ.get("SERVERLESS_MAX_UPLOAD_MB", "4"))) * 1024 * 1024
+    except ValueError:
+        return 4 * 1024 * 1024
 
 
 @router.post("")
@@ -30,11 +35,13 @@ async def upload_dataset(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail="Only CSV, Parquet, JSON, and Excel datasets are supported.")
 
     content = await file.read()
-    if len(content) > MAX_UPLOAD_BYTES:
+    max_upload_bytes = get_max_upload_bytes()
+    if len(content) > max_upload_bytes:
+        max_upload_mb = max_upload_bytes // (1024 * 1024)
         raise HTTPException(
             status_code=413,
             detail=f"Dataset is too large ({len(content) / 1024 / 1024:.1f} MB). "
-            f"Serverless deployments accept up to 4 MB. Use a smaller sample or self-host the backend.",
+            f"Serverless deployments accept up to {max_upload_mb} MB. Use a smaller sample or self-host the backend.",
         )
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,6 +51,7 @@ async def upload_dataset(file: UploadFile = File(...)) -> dict:
     from backend.tools.domain_detection import detect_domain
     profile = await profile_dataset(path)
     profile["domain"] = detect_domain(list(profile["schema"]))
+    profile["dashboard"] = build_dashboard_plan(list(profile["schema"]), profile)
     record = dataset_memory.register(
         filename=file.filename,
         path=path,

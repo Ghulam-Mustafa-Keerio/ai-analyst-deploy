@@ -4,67 +4,157 @@ import time
 import streamlit as st
 
 def render_auth() -> None:
-    # Use custom CSS to animate the login container and hide the sidebar 
-    # (since Streamlit doesn't natively let us conditionally render the sidebar wrapper easily before it executes)
     st.markdown(
         """
         <style>
-        /* Hide sidebar entirely on auth page */
         section[data-testid="stSidebar"] { display: none; }
-        
-        /* Center the auth card */
-        .auth-wrapper {
+
+        .auth-page {
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 70vh;
+            padding: 24px 16px;
+            background:
+                radial-gradient(circle at top left, rgba(37, 99, 235, 0.24), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.18), transparent 32%),
+                linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.96));
         }
-        
-        /* Auth card animation and styling */
+
         .auth-card {
-            background: var(--panel-strong);
-            border: 1px solid var(--line);
-            border-radius: var(--radius-lg);
-            padding: 40px;
-            box-shadow: var(--shadow-lg);
-            width: 100%;
-            max-width: 420px;
-            animation: floatUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            position: relative;
+            width: min(100%, 480px);
+            padding: 32px 28px 28px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.86);
+            box-shadow: 0 26px 70px rgba(2, 6, 23, 0.35);
+            backdrop-filter: blur(18px);
+            overflow: hidden;
+            animation: authFadeIn 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
             opacity: 0;
-            transform: translateY(20px);
-            backdrop-filter: blur(16px);
+            transform: translateY(18px) scale(0.985);
         }
-        
-        @keyframes floatUp {
-            to { opacity: 1; transform: translateY(0); }
+
+        .auth-card::before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.55), rgba(14, 165, 233, 0.18));
+            z-index: -1;
+            filter: blur(24px);
+            opacity: 0.8;
+            animation: authGlow 4s ease-in-out infinite;
         }
-        
+
+        .auth-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(255,255,255,0.08), transparent 35%, rgba(255,255,255,0.06));
+            pointer-events: none;
+            animation: authShine 5s linear infinite;
+        }
+
+        @keyframes authFadeIn {
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes authGlow {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            50% { transform: translate3d(4px, -6px, 0) scale(1.03); }
+        }
+
+        @keyframes authShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .auth-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: rgba(37, 99, 235, 0.16);
+            color: #bfdbfe;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            animation: authPulse 2.8s ease-in-out infinite;
+        }
+
+        @keyframes authPulse {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
         .auth-title {
-            text-align: center;
+            text-align: left;
             font-weight: 800;
-            font-size: 1.8rem;
+            font-size: 2rem;
             margin-bottom: 8px;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            background: linear-gradient(135deg, #dbeafe, #60a5fa 55%, #93c5fd);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        
+
         .auth-subtitle {
-            text-align: center;
             color: var(--muted);
             font-size: 0.95rem;
-            margin-bottom: 32px;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .auth-card .stTabs [data-testid="stBaseButton-secondary"] {
+            transition: transform 180ms ease, background-color 180ms ease;
+        }
+
+        .auth-card .stTabs [data-testid="stBaseButton-secondary"]:hover {
+            transform: translateY(-1px);
+        }
+
+        .auth-card .stTextInput input {
+            transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+        }
+
+        .auth-card .stTextInput input:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .auth-card .stButton > button {
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .auth-card .stButton > button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.16);
+        }
+
+        @media (max-width: 640px) {
+            .auth-card {
+                padding: 24px 20px 20px;
+                border-radius: 20px;
+            }
+
+            .auth-title {
+                font-size: 1.7rem;
+            }
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-    
-    st.markdown('<div class="auth-wrapper"><div class="auth-card">', unsafe_allow_html=True)
-    
+
+    st.markdown('<div class="auth-page"><div class="auth-card">', unsafe_allow_html=True)
+    st.markdown('<div class="auth-badge">Secure workspace access</div>', unsafe_allow_html=True)
     st.markdown('<div class="auth-title">Agent OS</div>', unsafe_allow_html=True)
     st.markdown('<div class="auth-subtitle">Autonomous Data Science Platform</div>', unsafe_allow_html=True)
-    
+
     tab1, tab2 = st.tabs(["Sign In", "Create Account"])
     
     with tab1:
