@@ -10,21 +10,54 @@ def render_auth() -> None:
         section[data-testid="stSidebar"] { display: none; }
 
         .auth-page {
-            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 24px 16px;
+            padding: clamp(12px, 3vw, 24px);
+            box-sizing: border-box;
             background:
                 radial-gradient(circle at top left, rgba(37, 99, 235, 0.24), transparent 28%),
                 radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.18), transparent 32%),
+                radial-gradient(circle at center, rgba(129, 140, 248, 0.16), transparent 38%),
                 linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.96));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-page::before,
+        .auth-page::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+            filter: blur(36px);
+            opacity: 0.32;
+            pointer-events: none;
+            animation: authFloat 7s ease-in-out infinite;
+        }
+
+        .auth-page::before {
+            width: 280px;
+            height: 280px;
+            left: -80px;
+            top: -80px;
+            background: rgba(59, 130, 246, 0.5);
+        }
+
+        .auth-page::after {
+            width: 220px;
+            height: 220px;
+            right: -60px;
+            bottom: -40px;
+            animation-delay: 2s;
+            background: rgba(56, 189, 248, 0.35);
         }
 
         .auth-card {
             position: relative;
-            width: min(100%, 480px);
-            padding: 32px 28px 28px;
+            width: min(100%, 520px);
+            max-width: 100%;
+            padding: clamp(22px, 4vw, 32px);
             border: 1px solid rgba(148, 163, 184, 0.2);
             border-radius: 24px;
             background: rgba(15, 23, 42, 0.86);
@@ -34,6 +67,7 @@ def render_auth() -> None:
             animation: authFadeIn 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
             opacity: 0;
             transform: translateY(18px) scale(0.985);
+            box-sizing: border-box;
         }
 
         .auth-card::before {
@@ -70,6 +104,11 @@ def render_auth() -> None:
             100% { transform: translateX(100%); }
         }
 
+        @keyframes authFloat {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            50% { transform: translate3d(10px, -16px, 0) scale(1.04); }
+        }
+
         .auth-badge {
             display: inline-flex;
             align-items: center;
@@ -94,11 +133,12 @@ def render_auth() -> None:
         .auth-title {
             text-align: left;
             font-weight: 800;
-            font-size: 2rem;
+            font-size: clamp(1.8rem, 2.3vw, 2.2rem);
             margin-bottom: 8px;
             background: linear-gradient(135deg, #dbeafe, #60a5fa 55%, #93c5fd);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
         }
 
         .auth-subtitle {
@@ -135,14 +175,55 @@ def render_auth() -> None:
             box-shadow: 0 10px 22px rgba(37, 99, 235, 0.16);
         }
 
+        .auth-card .stTabs [data-testid="stBaseButton-secondary"] {
+            width: 100%;
+            white-space: normal;
+        }
+
+        .auth-card .stTabs [data-testid="stBaseButton-secondary"] {
+            padding-top: 0.7rem;
+            padding-bottom: 0.7rem;
+        }
+
+        .auth-card .stTextInput,
+        .auth-card .stTextInput > div,
+        .auth-card .stTextInput input {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
         @media (max-width: 640px) {
+            .auth-page {
+                align-items: flex-start;
+                padding: 10px;
+            }
+
             .auth-card {
-                padding: 24px 20px 20px;
+                padding: 20px 16px 16px;
                 border-radius: 20px;
             }
 
             .auth-title {
-                font-size: 1.7rem;
+                font-size: 1.6rem;
+            }
+
+            .auth-subtitle {
+                font-size: 0.9rem;
+                margin-bottom: 18px;
+            }
+
+            .auth-badge {
+                font-size: 0.72rem;
+                padding: 6px 10px;
+            }
+
+            .auth-card .stButton > button {
+                min-height: 44px;
+            }
+
+            .auth-card .stTabs [data-testid="stBaseButton-secondary"] {
+                margin-bottom: 6px;
             }
         }
         </style>
