@@ -203,15 +203,25 @@ def render_dashboard() -> None:
             break
     dataset = st.session_state.get("dataset")
     profile = st.session_state.get("profile")
+    uploaded_file = st.session_state.get("file_uploader")
+    serverless_upload_ready = st.session_state.serverless and uploaded_file is not None and (not dataset or not profile)
 
     if not dataset or not profile:
+        if not serverless_upload_ready:
+            st.markdown('<hr class="soft">', unsafe_allow_html=True)
+            empty_state(
+                "📂",
+                "No dataset loaded",
+                "Choose a data source above to initialise lineage, schema profiling, and domain analysis.",
+            )
+            return
+
+        # Serverless mode with an uploaded file does not yet have a persisted dataset/profile,
+        # but the user can still configure and run the agent in a single request.
         st.markdown('<hr class="soft">', unsafe_allow_html=True)
-        empty_state(
-            "📂",
-            "No dataset loaded",
-            "Choose a data source above to initialise lineage, schema profiling, and domain analysis.",
+        st.info(
+            "Serverless upload ready. Configure the agent run below and click `Start agent run` to upload, profile, and analyze the dataset in a single request."
         )
-        return
 
     # ---- Lineage & domain ---------------------------------------------
     if dataset and profile:
@@ -294,66 +304,73 @@ def render_dashboard() -> None:
             except Exception as exc:
                 st.info(f"3D schema unavailable: {exc}")
 
-        # ---- Launch ----------------------------------------------------------
-        st.markdown('<hr class="soft">', unsafe_allow_html=True)
-        st.subheader("3 · Launch agent pipeline")
+    elif serverless_upload_ready:
+        st.subheader("2 · Dataset lineage & domain")
+        st.info(
+            "Your uploaded file is ready for serverless analysis. "
+            "The dataset will be profiled and analyzed when you click Start agent run."
+        )
 
+    # ---- Launch ----------------------------------------------------------
+    st.markdown('<hr class="soft">', unsafe_allow_html=True)
+    st.subheader("3 · Launch agent pipeline")
+
+    if st.session_state.serverless:
+        # Re-fetch the uploaded file from the file_uploader's state if needed for serverless mode
+        uploaded_file = st.session_state.get("file_uploader")
+        if uploaded_file is None:
+            st.info("Upload a dataset above to configure and launch the pipeline.")
+            return
+        columns = _columns_from_upload(uploaded_file)
+    else:
+        columns = list(dataset.get("schema", {}))
+    mode = st.radio("Autonomy", ["manual", "assisted", "autonomous"], index=2, horizontal=True)
+    target = st.selectbox("Target column", columns, index=max(len(columns) - 1, 0))
+    model = None
+    features: list[str] = []
+    if mode == "manual":
+        model = st.selectbox("Model", ["linear", "random_forest"])
+        features = feature_selector(columns, target)
+    elif mode == "assisted":
+        features = feature_selector(columns, target)
+
+    if st.button("Start agent run", use_container_width=True): 
         if st.session_state.serverless:
-            # Re-fetch the uploaded file from the file_uploader's state if needed for serverless mode
-            uploaded_file = st.session_state.get("file_uploader")
             if uploaded_file is None:
-                st.info("Upload a dataset above to configure and launch the pipeline.")
-                return
-            columns = _columns_from_upload(uploaded_file)
-        else:
-            columns = list(dataset.get("schema", {}))
-        mode = st.radio("Autonomy", ["manual", "assisted", "autonomous"], index=2, horizontal=True)
-        target = st.selectbox("Target column", columns, index=max(len(columns) - 1, 0))
-        model = None
-        features: list[str] = []
-        if mode == "manual":
-            model = st.selectbox("Model", ["linear", "random_forest"])
-            features = feature_selector(columns, target)
-        elif mode == "assisted":
-            features = feature_selector(columns, target)
-
-        if st.button("Start agent run", use_container_width=True): 
-            if st.session_state.serverless:
-                if uploaded_file is None:
-                    st.error("Upload a dataset first.")
-                else:
-                    with st.spinner("Uploading & running agent pipeline (serverless)…"):
-                        try:
-                            result = api_client.run(
-                                api_client.run_agent(
-                                    st.session_state.api_base_url,
-                                    filename=uploaded_file.name,
-                                    content=uploaded_file.getvalue(),
-                                    mode=mode,
-                                    target=target,
-                                    features=features,
-                                    model=model,
-                                )
-                            )
-                            _commit_dataset(result.get("dataset"), result.get("profile"))
-                            st.session_state.job_id = result.get("job_id")
-                            st.success(f"Agent run completed: `{st.session_state.job_id}` — view it on the Intelligence tab.")
-                        except Exception as exc:
-                            st.error(f"Agent run failed: {exc}")
+                st.error("Upload a dataset first.")
             else:
-                try:
-                    started = api_client.run(
-                        api_client.start_agent(
-                            st.session_state.api_base_url,
-                            dataset_id=dataset["dataset_id"],
-                            mode=mode,
-                            target=target,
-                            features=features,
-                            model=model,
+                with st.spinner("Uploading & running agent pipeline (serverless)…"):
+                    try:
+                        result = api_client.run(
+                            api_client.run_agent(
+                                st.session_state.api_base_url,
+                                filename=uploaded_file.name,
+                                content=uploaded_file.getvalue(),
+                                mode=mode,
+                                target=target,
+                                features=features,
+                                model=model,
+                            )
                         )
+                        _commit_dataset(result.get("dataset"), result.get("profile"))
+                        st.session_state.job_id = result.get("job_id")
+                        st.success(f"Agent run completed: `{st.session_state.job_id}` — view it on the Intelligence tab.")
+                    except Exception as exc:
+                        st.error(f"Agent run failed: {exc}")
+        else:
+            try:
+                started = api_client.run(
+                    api_client.start_agent(
+                        st.session_state.api_base_url,
+                        dataset_id=dataset["dataset_id"],
+                        mode=mode,
+                        target=target,
+                        features=features,
+                        model=model,
                     )
-                    st.session_state.job_id = started.get("job_id")
-                    st.session_state.events = []
-                    st.success(f"Agent run started: `{st.session_state.job_id}` — open Intelligence to watch it live.")
-                except Exception as exc:
-                    st.error(f"Agent run failed: {exc}")
+                )
+                st.session_state.job_id = started.get("job_id")
+                st.session_state.events = []
+                st.success(f"Agent run started: `{st.session_state.job_id}` — open Intelligence to watch it live.")
+            except Exception as exc:
+                st.error(f"Agent run failed: {exc}")
