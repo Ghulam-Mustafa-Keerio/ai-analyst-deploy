@@ -1,19 +1,8 @@
 from __future__ import annotations
-
-from pathlib import Path
-import sys
-
-# Make the project root importable so this page works whether it is launched
-# via `streamlit run ui/app.py` or executed directly (e.g. the debug console),
-# where the `ui` package would otherwise not be on sys.path.
-ROOT = Path(__file__).resolve().parent.parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-import httpx
 from typing import Any, Callable, TypedDict
 
 import io
+import httpx
 import pandas as pd
 import streamlit as st
 
@@ -26,7 +15,6 @@ from ui.services import api_client
 
 def _commit_dataset(dataset: dict[str, Any], profile: dict[str, Any]) -> None:
     """Store a freshly registered dataset in session state and notify the user."""
-    # [+] Reliability: Use .get() for safer dictionary access.
     if not isinstance(profile, dict):
         profile = {}
     if not isinstance(dataset, dict):
@@ -110,14 +98,11 @@ def _handle_source_connection(label: str, source_type: str, params: dict[str, An
         st.error("Provide all required inputs.")
         return
 
-    # [+] Production-Grade Error Handling: Catch specific exceptions instead of a generic `Exception`.
-    # This prevents masking programming errors and provides clearer feedback to the user.
     with st.spinner(f"Connecting to {source_type}…"):
         try:
             result = api_client.run(
                 api_client.connect_source(st.session_state.api_base_url, source_type=source_type, **params)
             )
-            # [+] Reliability: Safely access API results with .get() to prevent KeyErrors.
             dataset = result.get("dataset")
             profile = result.get("profile")
             _commit_dataset(dataset, profile)
@@ -128,10 +113,6 @@ def _handle_source_connection(label: str, source_type: str, params: dict[str, An
             # A fallback for unexpected errors, which should be logged for debugging.
             st.error(f"An unexpected error occurred during {label}: {exc}")
 
-# [+] Maintainability: Refactor the large if/elif block into a data-driven
-# pattern. This makes adding or modifying data sources much cleaner and less
-# error-prone. Each source is defined by a dictionary and rendered by a
-# dedicated function.
 
 class DataSource(TypedDict):
     label: str
@@ -140,9 +121,6 @@ class DataSource(TypedDict):
 
 
 def _render_upload_source() -> None:
-    # [+] Bug Fix: Add a key to the file_uploader. This stores the uploaded file in
-    # st.session_state, making it accessible to the "Launch agent" section in
-    # serverless mode, which relies on st.session_state.get("file_uploader").
     limit_mb = api_client.get_max_upload_mb()
     uploaded = st.file_uploader(  # type: ignore
         "Dataset",
@@ -369,7 +347,7 @@ def render_dashboard() -> None:
             st.caption("Columns placed on a grid; marker size encodes missing-ratio. Blue = numeric, amber = categorical.")
             try:
                 from ui.components.plot_3d import schema_3d
-    
+
                 schema_3d(_dataset_schema(dataset), profile.get("missing_ratio", {}))
             except Exception as exc:
                 st.info(f"3D schema unavailable: {exc}")

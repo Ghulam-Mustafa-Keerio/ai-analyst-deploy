@@ -5,7 +5,7 @@ from typing import Any, TypedDict, NotRequired
 import math
 import streamlit as st  # type: ignore
 
-# [+] Production-Grade Typing: Use TypedDict to define the schema for complex
+# Production-Grade Typing: Use TypedDict to define the schema for complex
 # dictionary structures like Plotly layouts. This provides static type checking
 # and autocompletion, preventing common errors and improving maintainability.
 
@@ -31,7 +31,7 @@ class _PlotlyLayout(TypedDict):
     title: NotRequired[str | None]
     showlegend: NotRequired[bool]
 
-# [+] Maintainability: Abstract common Plotly layout settings into a helper function
+# Maintainability: Abstract common Plotly layout settings into a helper function
 # to reduce code duplication and ensure a consistent visual style.
 def _get_default_scene_layout(height: int, title: str | None = None) -> _PlotlyLayout:
     """Returns a default layout dictionary for 3D scenes."""
@@ -64,7 +64,7 @@ def scatter_3d(points: list[dict[str, Any]], *, height: int = 460, color: str = 
         st.caption("No points to render in 3D.")
         return
 
-    # [+] Reliability: Use .get() with default values and explicit type conversion
+    # Reliability: Use .get() with default values and explicit type conversion
     # to prevent KeyErrors and TypeErrors from malformed input data.
     xs: list[float] = [float(p.get("x", 0.0)) for p in points]
     ys: list[float] = [float(p.get("y", 0.0)) for p in points]

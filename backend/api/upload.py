@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import asdict
 from pathlib import Path
+import json
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -19,7 +20,25 @@ UPLOAD_DIR = Path("/tmp/data/uploads") if os.environ.get("VERCEL") else Path("da
 
 
 def get_max_upload_bytes() -> int:
-    """Return the maximum upload size for the current backend configuration."""
+    """Return the maximum upload size for the current backend configuration.
+
+    The limit is now configurable via a JSON file located at
+    ``config/upload_limit.json``.  The file should contain a single key
+    ``max_upload_mb`` with an integer value.  If the file is missing or
+    malformed, the function falls back to the existing environment variable
+    logic, which defaults to 4 MB.
+    """
+    # First try to load a JSON configuration file.
+    config_path = Path("config/upload_limit.json")
+    if config_path.is_file():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            mb = int(data.get("max_upload_mb", 4))
+            return max(1, mb) * 1024 * 1024
+        except Exception:
+            # If anything goes wrong we fall back to the env var logic.
+            pass
+    # Fallback to environment variable or default.
     try:
         return max(1, int(os.environ.get("SERVERLESS_MAX_UPLOAD_MB", "4"))) * 1024 * 1024
     except ValueError:
