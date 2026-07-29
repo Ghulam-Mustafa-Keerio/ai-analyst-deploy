@@ -6,6 +6,9 @@ import httpx
 import pandas as pd
 import streamlit as st
 
+# Ensure the page uses a wide layout for better responsiveness
+st.set_page_config(layout="wide")
+
 from backend.tools.dashboard_plan import build_dashboard_plan
 from ui.components.feedback import empty_state
 from ui.components.feature_selector import feature_selector

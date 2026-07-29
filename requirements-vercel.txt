@@ -1,9 +1,0 @@
-# Slim dependency set for the Vercel serverless backend.
-# Excludes streamlit and websockets (not needed server-side) to keep the
-# function bundle small and within Vercel's size limits.
-fastapi>=0.115.0
-python-multipart>=0.0.18
-pandas>=2.2.3
-scikit-learn>=1.5.2
-pyarrow>=16.1.0
-httpx>=0.28.1
