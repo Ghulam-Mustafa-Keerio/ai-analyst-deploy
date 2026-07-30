@@ -12,14 +12,8 @@ from ui.components.feedback import status_badge, agent_node, progress_bar, empty
 from ui.services.api_client import get_job_status, download_model, run
 
 # ---------------------------------------------------------------------------
-# Page config – must be the first Streamlit command
+# NOTE: st.set_page_config is called in app.py — do NOT call it here.
 # ---------------------------------------------------------------------------
-st.set_page_config(
-    page_title="AI Analyst · Intelligence",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
 
 # ---------------------------------------------------------------------------
 # Design-system CSS (responsive, clean, professional)
@@ -48,7 +42,6 @@ st.markdown(
 
 /* ── Global overrides ── */
 .stApp { background: var(--bg); }
-section[data-testid="stSidebar"] { display: none; }
 .block-container { padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1400px; }
 
 /* ── Typography ── */
@@ -146,6 +139,13 @@ h3 { font-size: 1rem !important; font-weight: 600 !important; color: var(--text)
 @media (max-width: 768px) {
     .bubble { max-width: 90%; }
     .metric .value { font-size: 1.4rem; }
+    .block-container { max-width: 100%; }
+}
+@media (max-width: 480px) {
+    .bubble { max-width: 95%; font-size: 0.82rem; }
+    .metric .value { font-size: 1.2rem; }
+    .tl-row { padding: 8px 10px; }
+    .empty { padding: 32px 16px; }
 }
 </style>
 """,
@@ -215,13 +215,18 @@ def intelligence_page() -> None:
 
     # ── Main area ──
     if not job_id:
-        empty_state("🧠", "Enter a Job ID", "Paste a job ID in the sidebar to monitor an agent run.")
-        st.stop()
+        empty_state("🧠", "Enter a Job ID", "Paste a job ID in the sidebar or below to monitor an agent run.")
+        job_id = st.text_input("Job ID", placeholder="Paste a job id…", key="job_id_main")
+        if not job_id:
+            st.stop()
 
     job = _fetch_job(job_id)
     if job is None:
         empty_state("❌", "Job not found", "The job ID you entered does not match any known run.")
         st.stop()
+
+    # Type narrowed — job is guaranteed dict from here
+    assert job is not None
 
     # ── Pipeline stages ──
     stages = job.get("stages", [])

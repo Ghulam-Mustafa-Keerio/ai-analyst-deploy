@@ -53,11 +53,23 @@ with st.sidebar:
     )
     st.divider()
 
+    # User badge + logout
+    username = st.session_state.get("username", "User")
+    st.markdown(
+        f'<div class="user-badge">👤 <span>{username}</span></div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("Sign out", use_container_width=True, key="logout_btn"):
+        for key in ("authenticated", "username"):
+            st.session_state.pop(key, None)
+        st.rerun()
+    st.divider()
+
     page = st.radio(
         "Workspace",
-        ["Overview", "Dashboard", "Intelligence", "Advisor"],
+        ["Overview", "Dashboard", "Intelligence", "Advisor", "Integrations"],
         label_visibility="collapsed",
-        captions=["Platform guidelines", "Upload & launch", "Live reasoning", "Experiment Q&A"],
+        captions=["Platform guidelines", "Upload & launch", "Live reasoning", "Experiment Q&A", "MCP & MLOps"],
     )
 
     st.divider()
@@ -82,8 +94,11 @@ elif page == "Dashboard":
     from ui.pages.dashboard import render_dashboard
     render_dashboard()
 elif page == "Intelligence":
-    from ui.pages.intelligence import render_intelligence
+    from ui.pages.intelligence import intelligence_page as render_intelligence
     render_intelligence()
+elif page == "Integrations":
+    from ui.pages.integrations import render_integrations
+    render_integrations()
 else:
     from ui.pages.advisor import render_advisor
     render_advisor()

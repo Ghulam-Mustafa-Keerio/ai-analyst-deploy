@@ -5,10 +5,11 @@ import streamlit as st
 def render_overview() -> None:
     st.markdown('<div class="eyebrow">Platform Guidelines</div>', unsafe_allow_html=True)
     
+    username = st.session_state.get("username") or "Data Scientist"
     st.markdown(
         f"""
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <h1>Welcome, {st.session_state.username or 'Data Scientist'} 👋</h1>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <h1>Welcome, {username} 👋</h1>
             <span class="badge primary">Agent OS v2.0</span>
         </div>
         """,

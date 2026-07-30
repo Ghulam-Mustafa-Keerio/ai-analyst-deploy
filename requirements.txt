@@ -19,3 +19,7 @@ python-dotenv>=1.0.0
 pydantic>=2.10.9
 dash>=3.7.2
 dash-bootstrap-components>=1.4.2
+# ── Optional integrations (graceful degradation if missing) ──
+mlflow>=2.18.0
+neo4j>=5.25.0
+tenacity>=8.5.0

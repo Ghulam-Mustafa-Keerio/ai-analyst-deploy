@@ -386,16 +386,123 @@ hr.soft {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
 @keyframes pulseGlow {
     0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
     70% { box-shadow: 0 0 0 6px rgba(37,99,235,0); }
     100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 .card, .metric, .node, .tl-row, .bubble, .empty {
     animation: fadeIn 0.3s ease-out;
 }
 .node.running .state {
     animation: pulseGlow 2s infinite;
+}
+
+/* ===== User badge (sidebar) ===== */
+.user-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e2e8f0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    animation: slideInLeft 0.3s ease-out;
+}
+.user-badge span {
+    color: #cbd5e1;
+    font-weight: 500;
+}
+
+/* ===== Responsive layout ===== */
+@media (max-width: 768px) {
+    .stApp {
+        font-size: 0.92rem;
+    }
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.2rem; }
+    h3 { font-size: 1rem; }
+    .card, .card-strong, .shell {
+        padding: 14px;
+        border-radius: 10px;
+    }
+    .metric {
+        padding: 12px 14px;
+        min-height: 80px;
+    }
+    .metric .value {
+        font-size: 1.3rem;
+    }
+    .node {
+        padding: 10px 12px;
+    }
+    .bubble {
+        max-width: 92%;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+    .empty {
+        padding: 32px 16px;
+    }
+    .empty .icon { font-size: 1.8rem; }
+}
+
+@media (max-width: 480px) {
+    .stApp {
+        font-size: 0.85rem;
+    }
+    h1 { font-size: 1.3rem; }
+    .card, .card-strong, .shell {
+        padding: 12px;
+    }
+    .metric .value {
+        font-size: 1.15rem;
+    }
+    .auth-title {
+        font-size: 1.5rem;
+    }
+}
+
+/* ===== Loading spinner ===== */
+.loading-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(37,99,235,0.2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+/* ===== Smooth page transitions ===== */
+.stMainBlock {
+    animation: fadeInUp 0.35s ease-out;
+}
+
+/* ===== Better mobile sidebar toggle ===== */
+@media (max-width: 768px) {
+    section[data-testid="stSidebar"] {
+        min-width: 260px;
+    }
 }
 """
 

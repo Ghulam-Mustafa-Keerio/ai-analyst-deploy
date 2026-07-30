@@ -32,7 +32,7 @@ def get_max_upload_bytes() -> int:
     config_path = Path("config/upload_limit.json")
     if config_path.is_file():
         try:
-            data = json.loads(config_path.read_text(encoding="utf-8"))
+            data = json.loads(config_path.read_text(encoding="utf-8-sig"))
             mb = int(data.get("max_upload_mb", 4))
             return max(1, mb) * 1024 * 1024
         except Exception:
@@ -60,7 +60,9 @@ async def upload_dataset(file: UploadFile = File(...)) -> dict:
         raise HTTPException(
             status_code=413,
             detail=f"Dataset is too large ({len(content) / 1024 / 1024:.1f} MB). "
-            f"Serverless deployments accept up to {max_upload_mb} MB. Use a smaller sample or self-host the backend.",
+            f"The backend accepts files up to {max_upload_mb} MB. "
+            "Increase `max_upload_mb` in config/upload_limit.json or set the "
+            "SERVERLESS_MAX_UPLOAD_MB environment variable to allow larger uploads.",
         )
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

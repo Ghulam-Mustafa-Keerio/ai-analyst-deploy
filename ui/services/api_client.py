@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 from functools import wraps
+from pathlib import Path
 from typing import Any, Callable, Coroutine
 
 import httpx
@@ -9,10 +11,24 @@ import streamlit as st
 
 
 def get_max_upload_mb() -> int:
+    """Return the configured maximum upload size in MB.
+
+    Reads ``config/upload_limit.json`` (same source of truth as the backend)
+    and falls back to the ``SERVERLESS_MAX_UPLOAD_MB`` environment variable.
+    Defaults to 1024 MB (1 GB) when neither is available, so self-hosted
+    deployments are not artificially constrained.
+    """
+    config_path = Path("config/upload_limit.json")
+    if config_path.is_file():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8-sig"))
+            return max(1, int(data.get("max_upload_mb", 1024)))
+        except Exception:
+            pass
     try:
-        return max(1, int(os.environ.get("SERVERLESS_MAX_UPLOAD_MB", "4")))
+        return max(1, int(os.environ.get("SERVERLESS_MAX_UPLOAD_MB", "1024")))
     except ValueError:
-        return 4
+        return 1024
 
 
 MAX_UPLOAD_MB = get_max_upload_mb()
@@ -20,13 +36,19 @@ MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 
 def _guard_size(filename: str, content: bytes) -> None:
+    """Best-effort client-side size guard.
+
+    Only blocks uploads that exceed the configured limit.  The backend
+    performs the authoritative check, so this is a convenience to avoid
+    a wasted round-trip for obviously oversized files.
+    """
     limit_mb = get_max_upload_mb()
     limit_bytes = limit_mb * 1024 * 1024
     if len(content) > limit_bytes:
         raise ValueError(
             f"`{filename}` is {len(content) / 1024 / 1024:.1f} MB, "
-            f"but the serverless backend accepts files up to {limit_mb} MB. "
-            "Use a smaller sample or self-host the backend."
+            f"but the configured upload limit is {limit_mb} MB. "
+            "Increase `max_upload_mb` in config/upload_limit.json to allow larger files."
         )
 
 

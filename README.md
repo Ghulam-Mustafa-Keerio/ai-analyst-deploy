@@ -158,3 +158,62 @@ The Streamlit UI renders interactive Plotly 3D views (requires `plotly`):
 ## Scope
 
 The maintained v2 surface is `backend/`, `ui/`, `skills/business_domains/`, tests, and deployment/config files. Legacy Celery, old monolithic Streamlit, external skill dumps, generated reports, and unrelated package trees have been removed.
+
+## Platform Extensions (v2.1)
+
+The platform now ships with industry-standard MLOps and integration layers. All
+extensions degrade gracefully — missing optional dependencies fall back to
+in-memory or no-op behaviour so the core pipeline never breaks.
+
+### Model Context Protocol (MCP)
+
+Discover and invoke external tools via the open MCP standard (JSON-RPC 2.0).
+
+- `backend/mcp/` — MCP client (STDIO + HTTP transports) and server registry
+- `GET /mcp/servers` — list configured MCP servers
+- `GET /mcp/tools` — discover available tools across all servers
+- `POST /mcp/call` — invoke a tool by name with JSON arguments
+- Configure servers via `MCP_SERVERS` environment variable (JSON array)
+
+### Experiment Tracking
+
+Track agent runs to MLflow, Weights & Biases, or an in-memory store.
+
+- `backend/tracking/` — `ExperimentTracker` with pluggable backends
+- `POST /tracking/track` — track a job's run (metrics, params, artifacts)
+- `GET /tracking/runs` — list tracked runs
+- Set `MLFLOW_TRACKING_URI` for MLflow; `WANDB_API_KEY` for W&B
+
+### Knowledge Graph
+
+Build a Neo4j-exportable knowledge graph from any dataset to explore column
+relationships, correlations, and categorical entities.
+
+- `backend/knowledge/` — `KnowledgeGraph` builder with Neo4j export
+- `POST /graph/build` — build a graph from a dataset (correlation threshold, max entities)
+- `GET /graph/nodes` — list graph nodes
+- Set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` to enable Neo4j export
+
+### BI Connectors
+
+Push results to Power BI or run dbt transformations.
+
+- `backend/integrations/bi.py` — `PowerBIConnector` and `DbtConnector`
+- `POST /bi/pbi/push` — push rows to a Power BI push dataset
+- `POST /bi/dbt/run` — run a dbt pipeline (local subprocess or dbt Cloud)
+- Power BI: set `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`
+- dbt Cloud: set `DBT_CLOUD_API_TOKEN` and `DBT_CLOUD_ACCOUNT_ID`
+
+### Enhanced Tool Registry
+
+A unified registry aggregates builtin tools, MCP tools, and Python-callable
+tools so agents can discover and invoke capabilities dynamically.
+
+- `backend/tools/registry.py` — `ToolRegistry` with `discover_mcp_tools()`
+- Registered at startup; MCP tools auto-discovered via the registry
+
+### Integrations UI
+
+A new **Integrations** tab in the Streamlit frontend surfaces all the above
+features with interactive controls for discovering MCP tools, tracking
+experiments, building knowledge graphs, and pushing to BI systems.

@@ -19,7 +19,7 @@ def render_advisor() -> None:
 
     st.session_state.setdefault("advisor_messages", [])
 
-    if not st.session_state.job_id:
+    if not st.session_state.get("job_id"):
         empty_state(
             "💬",
             "No active run to advise on",
@@ -27,12 +27,12 @@ def render_advisor() -> None:
         )
         return
 
-    dataset = st.session_state.dataset
+    dataset = st.session_state.get("dataset")
     if dataset:
         with st.expander("3D dataset context", expanded=False):
             st.caption("PCA projection of the active dataset, grounding the advisor's reasoning.")
             try:
-                embedding = api_client.run(api_client.embed_3d(st.session_state.api_base_url, dataset["dataset_id"]))
+                embedding = api_client.run(api_client.embed_3d(st.session_state.api_base_url, dataset.get("dataset_id")))
                 scatter_3d(embedding.get("points", []), color="#16a34a")
             except httpx.HTTPStatusError as exc:
                 st.info(f"3D context unavailable: {exc}")

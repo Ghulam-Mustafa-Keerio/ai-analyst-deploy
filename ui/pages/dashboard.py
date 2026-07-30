@@ -6,8 +6,7 @@ import httpx
 import pandas as pd
 import streamlit as st
 
-# Ensure the page uses a wide layout for better responsiveness
-st.set_page_config(layout="wide")
+# NOTE: st.set_page_config is called in app.py — do NOT call it here.
 
 from backend.tools.dashboard_plan import build_dashboard_plan
 from ui.components.feedback import empty_state
@@ -129,8 +128,8 @@ def _render_upload_source() -> None:
         "Dataset",
         type=["csv", "parquet", "json", "xls", "xlsx"],
         help=(
-            "CSV, Parquet, JSON, or Excel. On the serverless backend, files up to "
-            f"{limit_mb} MB are uploaded and analysed in a single request."
+            "CSV, Parquet, JSON, or Excel. "
+            f"Files up to {limit_mb} MB are supported."
         ),
         key="file_uploader",
     )
@@ -141,8 +140,8 @@ def _render_upload_source() -> None:
     size_mb = size_bytes / 1024 / 1024 if size_bytes else 0
     if size_mb > limit_mb:
         st.error(
-            f"`{getattr(uploaded, 'name', 'uploaded file')}` is {size_mb:.1f} MB — the serverless backend accepts up to {limit_mb} MB. "
-            "Use a smaller sample or self-host the backend."
+            f"`{getattr(uploaded, 'name', 'uploaded file')}` is {size_mb:.1f} MB — the backend accepts up to {limit_mb} MB. "
+            "Increase `max_upload_mb` in config/upload_limit.json to allow larger uploads."
         )
         return
 

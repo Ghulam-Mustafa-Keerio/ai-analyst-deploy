@@ -18,6 +18,11 @@ from backend.api.chat import router as chat_router
 from backend.api.data_sources import router as data_sources_router
 from backend.api.status_ws import router as status_ws_router
 from backend.api.upload import router as upload_router
+from backend.api.mcp import router as mcp_router
+from backend.api.tracking import router as tracking_router
+from backend.api.graph import router as graph_router
+from backend.api.bi import router as bi_router
+from backend.mcp.registry import mcp_registry
 
 
 app = FastAPI(
@@ -39,6 +44,28 @@ app.include_router(agent_router)
 app.include_router(chat_router)
 app.include_router(data_sources_router)
 app.include_router(status_ws_router)
+app.include_router(mcp_router)
+app.include_router(tracking_router)
+app.include_router(graph_router)
+app.include_router(bi_router)
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    """Pre-discover MCP tools so they're available immediately."""
+    try:
+        from backend.tools.registry import tool_registry
+        await tool_registry.discover_mcp_tools()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    try:
+        await mcp_registry.close_all()
+    except Exception:  # noqa: BLE001
+        pass
 
 @app.get("/")
 async def root() -> dict:

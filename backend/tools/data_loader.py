@@ -47,3 +47,15 @@ async def preview_dataset(path: str | Path, *, page: int = 1, page_size: int = 1
         df = await read_dataset(file_path, nrows=offset + page_size)
     page_df = df.iloc[offset : offset + page_size]
     return {"page": page, "page_size": page_size, "rows": page_df.to_dict(orient="records")}
+
+
+async def load_dataframe(dataset_id: str) -> pd.DataFrame:
+    """Load a DataFrame by dataset_id registered in dataset memory.
+
+    Resolves the dataset's file path via ``dataset_memory`` and reads it with
+    ``read_dataset``. Raises ``KeyError`` if the dataset_id is unknown.
+    """
+    from backend.memory.dataset_memory import dataset_memory
+
+    record = dataset_memory.get(dataset_id)
+    return await read_dataset(record.path)
