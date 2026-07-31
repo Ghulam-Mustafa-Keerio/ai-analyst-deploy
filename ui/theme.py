@@ -11,39 +11,39 @@ import streamlit as st
 # should only reference semantic class names.
 # ---------------------------------------------------------------------------
 
-PRIMARY = "#2563eb"        # Vibrant blue
-SUCCESS = "#16a34a"        # Green
-WARNING = "#d97706"        # Amber
-DANGER = "#dc2626"         # Red
-TEXT = "#1e293b"           # Slate 800
+PRIMARY = "#15803D"        # Discovery Green
+SUCCESS = "#22C55E"        # Bright Green
+WARNING = "#D97706"        # Amber
+DANGER = "#DC2626"         # Red
+TEXT = "#14532D"           # Deep Forest Green
 MUTED = "#64748b"          # Slate 500
 LINE = "rgba(148,163,184,0.22)"   # Slate 400 / 22%
-PANEL = "rgba(255,255,255,0.82)"  # White glass
-PANEL_STRONG = "rgba(255,255,255,0.96)"
-BASE = "#f0f2f5"           # Soft cool-grey background
+PANEL = "rgba(240,253,244,0.82)"  # Soft Green Glass
+PANEL_STRONG = "rgba(240,253,244,0.96)"
+BASE = "#F0FDF4"           # Soft Mint background
 
 CSS = """
 /* ===== Import Google Fonts ===== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --primary: #2563eb;
-    --primary-light: #3b82f6;
-    --primary-hover: #1d4ed8;
-    --success: #16a34a;
-    --success-light: #22c55e;
-    --warning: #d97706;
+    --primary: #15803D;
+    --primary-light: #22C55E;
+    --primary-hover: #166534;
+    --success: #22C55E;
+    --success-light: #4ade80;
+    --warning: #D97706;
     --warning-light: #f59e0b;
-    --danger: #dc2626;
+    --danger: #DC2626;
     --danger-light: #ef4444;
-    --text: #1e293b;
-    --text-secondary: #334155;
+    --text: #14532D;
+    --text-secondary: #166534;
     --muted: #64748b;
     --line: rgba(148,163,184,0.22);
-    --panel: rgba(255,255,255,0.82);
-    --panel-strong: rgba(255,255,255,0.96);
-    --base: #f0f2f5;
-    --base-alt: #e8ebf0;
+    --panel: rgba(240,253,244,0.82);
+    --panel-strong: rgba(240,253,244,0.96);
+    --base: #F0FDF4;
+    --base-alt: #dcfce7;
     --radius: 12px;
     --radius-lg: 16px;
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
@@ -55,8 +55,8 @@ CSS = """
 /* ===== Global ===== */
 .stApp {
     background:
-        radial-gradient(1200px 600px at 80% -10%, rgba(37,99,235,0.04), transparent 60%),
-        radial-gradient(900px 500px at -10% 10%, rgba(22,163,74,0.03), transparent 55%),
+        radial-gradient(1200px 600px at 80% -10%, rgba(21,128,61,0.05), transparent 60%),
+        radial-gradient(900px 500px at -10% 10%, rgba(34,197,94,0.04), transparent 55%),
         var(--base) !important;
     color: var(--text);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -194,7 +194,7 @@ h3 { font-size: 1.1rem; }
 }
 .node.completed .state { color: var(--success); border-color: rgba(22,163,74,0.3); background: rgba(22,163,74,0.06); }
 .node.failed .state    { color: var(--danger);  border-color: rgba(220,38,38,0.3);  background: rgba(220,38,38,0.06); }
-.node.running .state   { color: var(--primary); border-color: rgba(37,99,235,0.3);  background: rgba(37,99,235,0.06); }
+.node.running .state   { color: var(--primary); border-color: rgba(21,128,61,0.3);  background: rgba(21,128,61,0.06); }
 
 /* ===== Timeline rows ===== */
 .tl-row {
@@ -226,7 +226,7 @@ h3 { font-size: 1.1rem; }
     color: var(--muted);
     background: var(--base);
 }
-.badge.primary { color: var(--primary); border-color: rgba(37,99,235,0.3);  background: rgba(37,99,235,0.06); }
+.badge.primary { color: var(--primary); border-color: rgba(21,128,61,0.3);  background: rgba(21,128,61,0.06); }
 .badge.success { color: var(--success); border-color: rgba(22,163,74,0.3);  background: rgba(22,163,74,0.06); }
 .badge.warning { color: var(--warning); border-color: rgba(217,119,6,0.3);  background: rgba(217,119,6,0.06); }
 .badge.danger  { color: var(--danger);  border-color: rgba(220,38,38,0.3);  background: rgba(220,38,38,0.06); }
@@ -242,9 +242,9 @@ h3 { font-size: 1.1rem; }
     box-shadow: var(--shadow-sm);
 }
 .bubble.user {
-    background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(59,130,246,0.06));
+    background: linear-gradient(135deg, rgba(21,128,61,0.10), rgba(34,197,94,0.06));
     margin-left: auto;
-    border-color: rgba(37,99,235,0.2);
+    border-color: rgba(21,128,61,0.2);
 }
 .bubble.assistant {
     background: #ffffff;
@@ -271,8 +271,8 @@ h3 { font-size: 1.1rem; }
 
 /* ===== Sidebar ===== */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1b2a4a 0%, #162240 100%) !important;
-    border-right: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, #0f1f15 0%, #0a160e 100%) !important;
+    border-right: 1px solid rgba(34,197,94,0.12);
 }
 section[data-testid="stSidebar"] * {
     color: #e2e8f0 !important;
@@ -294,6 +294,11 @@ section[data-testid="stSidebar"] .badge.danger {
     border-color: rgba(248,113,113,0.3);
     background: rgba(248,113,113,0.1);
 }
+section[data-testid="stSidebar"] .badge.primary {
+    color: #4ade80 !important;
+    border-color: rgba(74,222,128,0.3);
+    background: rgba(74,222,128,0.1);
+}
 /* Sidebar radio labels */
 section[data-testid="stSidebar"] label {
     color: #cbd5e1 !important;
@@ -307,17 +312,17 @@ section[data-testid="stSidebar"] .stRadio label[data-baseweb="radio"] {
 /* ===== Buttons ===== */
 .stButton > button[kind="primary"],
 .stButton > button[data-testid="stBaseButton-primary"] {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    background: linear-gradient(135deg, #15803D, #166534) !important;
     border: none;
     font-weight: 600;
     color: #ffffff !important;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+    box-shadow: 0 2px 8px rgba(21,128,61,0.25);
     transition: all var(--transition);
 }
 .stButton > button[kind="primary"]:hover,
 .stButton > button[data-testid="stBaseButton-primary"]:hover {
-    box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+    box-shadow: 0 4px 16px rgba(21,128,61,0.35);
     transform: translateY(-1px);
 }
 
@@ -330,7 +335,7 @@ section[data-testid="stSidebar"] .stRadio label[data-baseweb="radio"] {
 }
 .stTextInput input:focus, .stTextArea textarea:focus {
     border-color: var(--primary) !important;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
+    box-shadow: 0 0 0 3px rgba(21,128,61,0.1) !important;
 }
 
 /* ===== Expander styling ===== */
@@ -395,9 +400,9 @@ hr.soft {
     to   { opacity: 1; transform: translateX(0); }
 }
 @keyframes pulseGlow {
-    0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
-    70% { box-shadow: 0 0 0 6px rgba(37,99,235,0); }
-    100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+    0% { box-shadow: 0 0 0 0 rgba(21,128,61,0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(21,128,61,0); }
+    100% { box-shadow: 0 0 0 0 rgba(21,128,61,0); }
 }
 @keyframes shimmer {
     0% { background-position: -200% 0; }
@@ -487,7 +492,7 @@ hr.soft {
     display: inline-block;
     width: 18px;
     height: 18px;
-    border: 2px solid rgba(37,99,235,0.2);
+    border: 2px solid rgba(21,128,61,0.2);
     border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
@@ -517,3 +522,47 @@ def apply_theme() -> None:
 def render_css() -> None:
     """Render the raw CSS block (used at app bootstrap)."""
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
+
+/* ===== Cyberpunk Visual Effects ===== */
+/* Neon glow for cards and interactive elements */
+.card, .node, .metric, .shell {
+    box-shadow: 0 0 0 1px rgba(21,128,61,0.15), 0 4px 16px rgba(21,128,61,0.08), 0 1px 4px rgba(0,0,0,0.06);
+}
+.card:hover, .node:hover, .metric:hover {
+    box-shadow: 0 0 0 1px rgba(34,197,94,0.35), 0 8px 32px rgba(21,128,61,0.25), 0 0 20px rgba(34,197,94,0.15);
+}
+/* Terminal-style borders for sidebar and panels */
+section[data-testid="stSidebar"] {
+    border-right: 2px solid rgba(34,197,94,0.15) !important;
+    box-shadow: inset -4px 0 12px rgba(21,128,61,0.1) !important;
+}
+/* Scanline overlay effect */
+.stApp::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(21,128,61,0.015) 0px,
+        rgba(21,128,61,0.015) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+    z-index: 9999;
+    opacity: 0.4;
+}
+/* Neon glow pulse for active/running states */
+.node.running, .badge.primary {
+    animation: pulseGlow 2.5s infinite ease-in-out;
+    border-color: rgba(34,197,94,0.5) !important;
+}
+/* Terminal-style input borders */
+.stTextInput input, .stTextArea textarea, .stSelectbox select {
+    border: 1px solid rgba(21,128,61,0.25) !important;
+    box-shadow: inset 0 1px 3px rgba(21,128,61,0.05) !important;
+}
+.stTextInput input:focus, .stTextArea textarea:focus {
+    border-color: rgba(34,197,94,0.6) !important;
+    box-shadow: 0 0 0 3px rgba(21,128,61,0.15), 0 0 12px rgba(34,197,94,0.2) !important;
+}

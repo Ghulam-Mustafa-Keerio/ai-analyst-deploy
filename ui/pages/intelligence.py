@@ -23,21 +23,21 @@ st.markdown(
 <style>
 /* ── Root tokens ── */
 :root {
-    --bg: #f4f6fb;
-    --surface: #ffffff;
-    --text: #0f172a;
+    --bg: #F0FDF4;
+    --surface: rgba(240,253,244,0.96);
+    --text: #14532D;
     --muted: #64748b;
-    --line: #e2e8f0;
-    --accent: #2563eb;
-    --accent-soft: #dbeafe;
-    --success: #16a34a;
-    --success-soft: #dcfce7;
-    --warning: #f59e0b;
-    --warning-soft: #fef3c7;
-    --danger: #dc2626;
-    --danger-soft: #fee2e2;
+    --line: rgba(21,128,61,0.15);
+    --accent: #15803D;
+    --accent-soft: rgba(21,128,61,0.12);
+    --success: #22C55E;
+    --success-soft: rgba(34,197,94,0.12);
+    --warning: #D97706;
+    --warning-soft: rgba(217,119,6,0.12);
+    --danger: #DC2626;
+    --danger-soft: rgba(220,38,38,0.12);
     --radius: 12px;
-    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow: 0 1px 3px rgba(21,128,61,0.06), 0 1px 2px rgba(21,128,61,0.04);
 }
 
 /* ── Global overrides ── */

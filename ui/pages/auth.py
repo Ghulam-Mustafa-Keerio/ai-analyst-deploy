@@ -17,9 +17,9 @@ def render_auth() -> None:
             padding: clamp(12px, 3vw, 24px);
             box-sizing: border-box;
             background:
-                radial-gradient(circle at top left, rgba(37, 99, 235, 0.24), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.18), transparent 32%),
-                radial-gradient(circle at center, rgba(129, 140, 248, 0.16), transparent 38%),
+                radial-gradient(circle at top left, rgba(21,128,61,0.24), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 32%),
+                radial-gradient(circle at center, rgba(21,128,61,0.16), transparent 38%),
                 linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.96));
             position: relative;
             overflow: hidden;
@@ -41,7 +41,7 @@ def render_auth() -> None:
             height: 280px;
             left: -80px;
             top: -80px;
-            background: rgba(59, 130, 246, 0.5);
+            background: rgba(21,128,61,0.5);
         }
 
         .auth-page::after {
@@ -50,7 +50,7 @@ def render_auth() -> None:
             right: -60px;
             bottom: -40px;
             animation-delay: 2s;
-            background: rgba(56, 189, 248, 0.35);
+            background: rgba(34,197,94,0.35);
         }
 
         .auth-card {

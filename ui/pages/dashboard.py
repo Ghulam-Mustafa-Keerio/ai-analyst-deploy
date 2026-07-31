@@ -266,13 +266,13 @@ def render_dashboard() -> None:
     
         cols = st.columns(4)
         with cols[0]:
-            metric_card("Rows", f"{dataset.get('rows', 0):,}", "Registered in dataset memory", accent="#2563eb")
+            metric_card("Rows", f"{dataset.get('rows', 0):,}", "Registered in dataset memory", accent="var(--primary)")
         with cols[1]:
-            metric_card("Columns", dataset.get("columns", 0), "Schema inferred", accent="#2563eb")
+            metric_card("Columns", dataset.get("columns", 0), "Schema inferred", accent="var(--primary)")
         with cols[2]:
-            metric_card("Dataset ID", dataset.get("dataset_id", "N/A")[:8], "Lineage key", accent="#16a34a")
+            metric_card("Dataset ID", dataset.get("dataset_id", "N/A")[:8], "Lineage key", accent="var(--success)")
         with cols[3]:
-            metric_card("Mode", "Autonomous", "Default control level", accent="#d97706")
+            metric_card("Mode", "Autonomous", "Default control level", accent="var(--warning)")
     
         col_lineage, col_domain = st.columns([1.2, 1])
         with col_lineage:
