@@ -1,16 +1,5 @@
 from __future__ import annotations
-
 import streamlit as st
-
-# ---------------------------------------------------------------------------
-# Design system
-# ---------------------------------------------------------------------------
-# Centralised, token-driven styling so every page shares one visual language.
-# Clean, professional light-mode aesthetic suitable for a modern SaaS / data-
-# science dashboard product.  Keep all raw CSS here; components and pages
-# should only reference semantic class names.
-# ---------------------------------------------------------------------------
-
 PRIMARY = "#15803D"        # Discovery Green
 SUCCESS = "#22C55E"        # Bright Green
 WARNING = "#D97706"        # Amber
@@ -509,19 +498,6 @@ hr.soft {
         min-width: 260px;
     }
 }
-"""
-
-
-def apply_theme() -> None:
-    """Inject the design-system CSS once per session."""
-    if "theme_applied" not in st.session_state:
-        st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
-        st.session_state.theme_applied = True
-
-
-def render_css() -> None:
-    """Render the raw CSS block (used at app bootstrap)."""
-    st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
 
 /* ===== Cyberpunk Visual Effects ===== */
 /* Neon glow for cards and interactive elements */
@@ -566,3 +542,9 @@ section[data-testid="stSidebar"] {
     border-color: rgba(34,197,94,0.6) !important;
     box-shadow: 0 0 0 3px rgba(21,128,61,0.15), 0 0 12px rgba(34,197,94,0.2) !important;
 }
+"""
+def apply_theme() -> None:
+    """Inject the design‑system CSS once per session."""
+    if "theme_applied" not in st.session_state:
+        st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
+        st.session_state.theme_applied = True
