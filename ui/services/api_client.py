@@ -178,6 +178,14 @@ async def get_job_status(api_base_url: str, job_id: str) -> dict[str, Any]:
         return response.json()
 
 
+async def create_job(api_base_url: str) -> dict[str, Any]:
+    """Create a new job via the backend and return the job ID."""
+    async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
+        response = await client.post("/agent/jobs/")
+        response.raise_for_status()
+        return response.json()
+
+
 async def chat(api_base_url: str, *, job_id: str | None, message: str) -> dict[str, Any]:
     async with httpx.AsyncClient(base_url=api_base_url, timeout=30) as client:
         response = await client.post("/chat", json={"job_id": job_id, "message": message})

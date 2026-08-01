@@ -4,6 +4,70 @@ from __future__ import annotations
 
 import streamlit as st
 
+st.markdown(
+    """
+<style>
+/* ── Integrations page dark theme ── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background: rgba(30, 41, 59, 0.4);
+    border-radius: 12px;
+    padding: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #94a3b8;
+    transition: all 0.2s ease;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    color: #f8fafc;
+    background: rgba(148, 163, 184, 0.1);
+}
+.stTabs [aria-selected="true"] {
+    background: rgba(37, 99, 235, 0.15) !important;
+    color: #60a5fa !important;
+}
+.stTabs [data-baseweb="tab-highlight"] {
+    background-color: #2563eb !important;
+}
+.stTabs [data-baseweb="tab-border"] {
+    display: none;
+}
+
+/* ── Expander dark theme ── */
+.streamlit-expander {
+    background: rgba(30, 41, 59, 0.4) !important;
+    border: 1px solid rgba(148, 163, 184, 0.15) !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+.streamlit-expander > details > summary {
+    color: #f8fafc !important;
+    font-weight: 600;
+}
+
+/* ── Section headers ── */
+.integration-section h3 {
+    color: #f8fafc !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+}
+
+/* ── Soft hr ── */
+hr.soft {
+    border: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    margin: 1.5rem 0;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
 
 def _api(method: str, path: str, **kwargs):
     """Helper to call the backend API."""

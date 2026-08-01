@@ -1,76 +1,48 @@
-from __future__ import annotations
+'''Module for displaying job intelligence in Streamlit'''
 
-import asyncio
+from __future__ import annotations
+from typing import Any
+
 import streamlit as st
 
 from ui.components.glass_card import glass_card
-from ui.components.chat_bubble import chat_bubble
 from ui.components.metric_card import metric_card
 from ui.components.feature_selector import feature_selector
 from ui.components.plot_3d import pipeline_3d, scatter_3d
 from ui.components.feedback import status_badge, agent_node, progress_bar, empty_state, timeline_row
-from ui.services.api_client import get_job_status, download_model, run
+from ui.services.api_client import get_job_status, download_model, run, create_job
 
 # ---------------------------------------------------------------------------
 # NOTE: st.set_page_config is called in app.py — do NOT call it here.
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Design-system CSS (responsive, clean, professional)
+# Dark-theme component styles (inherits global tokens from app.py)
 # ---------------------------------------------------------------------------
 st.markdown(
     """
 <style>
-/* ── Root tokens ── */
-:root {
-    --bg: #F0FDF4;
-    --surface: rgba(240,253,244,0.96);
-    --text: #14532D;
-    --muted: #64748b;
-    --line: rgba(21,128,61,0.15);
-    --accent: #15803D;
-    --accent-soft: rgba(21,128,61,0.12);
-    --success: #22C55E;
-    --success-soft: rgba(34,197,94,0.12);
-    --warning: #D97706;
-    --warning-soft: rgba(217,119,6,0.12);
-    --danger: #DC2626;
-    --danger-soft: rgba(220,38,38,0.12);
-    --radius: 12px;
-    --shadow: 0 1px 3px rgba(21,128,61,0.06), 0 1px 2px rgba(21,128,61,0.04);
-}
-
-/* ── Global overrides ── */
-.stApp { background: var(--bg); }
-.block-container { padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1400px; }
-
-/* ── Typography ── */
-h1 { font-size: 1.75rem !important; font-weight: 700 !important; color: var(--text) !important; letter-spacing: -0.02em; }
-h2 { font-size: 1.15rem !important; font-weight: 600 !important; color: var(--text) !important; margin-top: 1.5rem !important; }
-h3 { font-size: 1rem !important; font-weight: 600 !important; color: var(--text) !important; }
-
 /* ── Cards ── */
 .card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 12px;
     padding: 20px 24px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     margin-bottom: 16px;
+    backdrop-filter: blur(12px);
 }
 
 /* ── Metric tile ── */
 .metric {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 12px;
     padding: 18px 20px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     text-align: center;
+    backdrop-filter: blur(12px);
 }
-.metric .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-.metric .value { font-size: 1.8rem; font-weight: 700; color: var(--text); }
-.metric .hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+.metric .label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.metric .value { font-size: 1.8rem; font-weight: 700; color: #f8fafc; }
+.metric .hint { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
 
 /* ── Badges ── */
 .badge {
@@ -79,67 +51,66 @@ h3 { font-size: 1rem !important; font-weight: 600 !important; color: var(--text)
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 600;
-    background: var(--line);
-    color: var(--muted);
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
 }
-.badge.primary { background: var(--accent-soft); color: var(--accent); }
-.badge.success { background: var(--success-soft); color: var(--success); }
-.badge.warning { background: var(--warning-soft); color: var(--warning); }
-.badge.danger  { background: var(--danger-soft);  color: var(--danger); }
+.badge.primary { background: rgba(37, 99, 235, 0.2); color: #60a5fa; }
+.badge.success { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.badge.warning { background: rgba(217, 119, 6, 0.15); color: #fbbf24; }
+.badge.danger  { background: rgba(220, 38, 38, 0.15);  color: #f87171; }
 
 /* ── Pipeline nodes ── */
 .node {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 14px; border-radius: 8px; margin-bottom: 6px;
-    border: 1px solid var(--line); background: var(--surface);
+    border: 1px solid rgba(148, 163, 184, 0.15); background: rgba(30, 41, 59, 0.6);
     font-size: 0.85rem;
 }
-.node .name { font-weight: 600; color: var(--text); }
+.node .name { font-weight: 600; color: #f8fafc; }
 .node .state { font-size: 0.72rem; text-transform: uppercase; font-weight: 600; }
-.node.completed { border-left: 3px solid var(--success); }
-.node.completed .state { color: var(--success); }
-.node.failed    { border-left: 3px solid var(--danger); }
-.node.failed .state    { color: var(--danger); }
-.node.running   { border-left: 3px solid var(--accent); }
-.node.running .state   { color: var(--accent); }
-.node.queued    { border-left: 3px solid var(--muted); }
-.node.queued .state    { color: var(--muted); }
+.node.completed { border-left: 3px solid #4ade80; }
+.node.completed .state { color: #4ade80; }
+.node.failed    { border-left: 3px solid #f87171; }
+.node.failed .state    { color: #f87171; }
+.node.running   { border-left: 3px solid #60a5fa; }
+.node.running .state   { color: #60a5fa; }
+.node.queued    { border-left: 3px solid #94a3b8; }
+.node.queued .state    { color: #94a3b8; }
 
 /* ── Chat bubbles ── */
 .bubble {
     max-width: 75%; padding: 12px 16px; border-radius: 14px;
     font-size: 0.88rem; line-height: 1.5;
 }
-.bubble.assistant { background: var(--surface); border: 1px solid var(--line); color: var(--text); }
-.bubble.user      { background: var(--accent); color: #fff; }
+.bubble.assistant { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(148, 163, 184, 0.15); color: #f8fafc; }
+.bubble.user      { background: #2563eb; color: #fff; }
 .bubble .role { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; opacity: 0.7; }
 
 /* ── Timeline rows ── */
 .tl-row {
     padding: 10px 14px; border-radius: 8px; margin-bottom: 6px;
-    border: 1px solid var(--line); background: var(--surface);
+    border: 1px solid rgba(148, 163, 184, 0.15); background: rgba(30, 41, 59, 0.6);
 }
-.tl-row .agent { font-weight: 600; color: var(--text); font-size: 0.85rem; }
-.tl-row .msg   { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
-.tl-row.completed { border-left: 3px solid var(--success); }
-.tl-row.failed    { border-left: 3px solid var(--danger); }
+.tl-row .agent { font-weight: 600; color: #f8fafc; font-size: 0.85rem; }
+.tl-row .msg   { font-size: 0.82rem; color: #94a3b8; margin-top: 2px; }
+.tl-row.completed { border-left: 3px solid #4ade80; }
+.tl-row.failed    { border-left: 3px solid #f87171; }
 
 /* ── Empty state ── */
 .empty {
     text-align: center; padding: 48px 24px;
-    background: var(--surface); border: 1px dashed var(--line);
-    border-radius: var(--radius);
+    background: rgba(30, 41, 59, 0.4); border: 1px dashed rgba(148, 163, 184, 0.3);
+    border-radius: 12px;
 }
 .empty .icon { font-size: 2.5rem; margin-bottom: 12px; }
 
 /* ── Small muted text ── */
-.small-muted { font-size: 0.8rem; color: var(--muted); }
+.small-muted { font-size: 0.8rem; color: #94a3b8; }
 
 /* ── Responsive tweaks ── */
 @media (max-width: 768px) {
     .bubble { max-width: 90%; }
     .metric .value { font-size: 1.4rem; }
-    .block-container { max-width: 100%; }
 }
 @media (max-width: 480px) {
     .bubble { max-width: 95%; font-size: 0.82rem; }
@@ -156,7 +127,7 @@ h3 { font-size: 1rem !important; font-weight: 600 !important; color: var(--text)
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _fetch_job(job_id: str) -> dict | None:
+def _fetch_job(job_id: str) -> dict[str, Any] | None:
     """Fetch job status from the backend, returning None on failure."""
     try:
         return run(get_job_status(st.session_state.get("api_base_url", ""), job_id))
@@ -164,27 +135,32 @@ def _fetch_job(job_id: str) -> dict | None:
         return None
 
 
-def _fetch_model(job_id: str) -> dict | None:
+def _fetch_model(job_id: str) -> dict[str, Any] | None:
     """Download the model artifact for a completed job."""
     try:
         return run(download_model(st.session_state.get("api_base_url", ""), job_id))
     except Exception:
         return None
 
-
-# ---------------------------------------------------------------------------
-# Page entry-point
-# ---------------------------------------------------------------------------
 def intelligence_page() -> None:
     st.title("🧠 Agent Intelligence")
 
     # ── Sidebar panel ──
     with st.sidebar:
         st.markdown("### ⚙️ Controls")
-        job_id = st.text_input("Job ID", placeholder="Paste a job id…", key="job_id_input")
-
-        if job_id:
-            job = _fetch_job(job_id)
+    # Use existing session state to pre‑populate the input
+    job_id_input = st.text_input("Job ID", value=st.session_state.get("job_id_input", ""), key="job_id_input")
+    if st.button("Create Job", key="create_job_btn"):
+        # Create a new job and populate the input field
+        try:
+            result = run(create_job(st.session_state.get("api_base_url", "")))
+            new_job_id = result.get("job_id")
+            st.session_state["job_id_input"] = new_job_id
+            st.success("Job created: " + new_job_id)
+        except Exception as e:
+            st.error(f"Failed to create job: {e}")
+        if job_id_input:
+            job = _fetch_job(job_id_input)
             if job is None:
                 empty_state("🔍", "Job Not Found", "Double-check the Job ID and try again.")
             else:
@@ -199,12 +175,12 @@ def intelligence_page() -> None:
                 st.markdown("---")
                 st.markdown("### 📥 Model")
                 if status == "completed":
-                    model = _fetch_model(job_id)
+                    model = _fetch_model(job_id_input)
                     if model and model.get("content"):
                         st.download_button(
                             label="⬇ Download Trained Model",
                             data=model["content"],
-                            file_name=model.get("filename", f"{job_id}.joblib"),
+                            file_name=model.get("filename", f"{job_id_input}.joblib"),
                             mime="application/octet-stream",
                             use_container_width=True,
                         )
@@ -214,13 +190,13 @@ def intelligence_page() -> None:
                     st.caption("Model available after the run completes.")
 
     # ── Main area ──
-    if not job_id:
+    if not job_id_input:
         empty_state("🧠", "Enter a Job ID", "Paste a job ID in the sidebar or below to monitor an agent run.")
         job_id = st.text_input("Job ID", placeholder="Paste a job id…", key="job_id_main")
         if not job_id:
             st.stop()
 
-    job = _fetch_job(job_id)
+    job = _fetch_job(job_id_input or st.session_state.get("job_id_main", ""))
     if job is None:
         empty_state("❌", "Job not found", "The job ID you entered does not match any known run.")
         st.stop()

@@ -22,6 +22,7 @@ from backend.api.mcp import router as mcp_router
 from backend.api.tracking import router as tracking_router
 from backend.api.graph import router as graph_router
 from backend.api.bi import router as bi_router
+from backend.api.jobs import router as jobs_router
 from backend.mcp.registry import mcp_registry
 
 
@@ -47,6 +48,7 @@ app.include_router(status_ws_router)
 app.include_router(mcp_router)
 app.include_router(tracking_router)
 app.include_router(graph_router)
+app.include_router(jobs_router)
 app.include_router(bi_router)
 
 
